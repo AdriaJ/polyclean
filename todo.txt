@@ -1,0 +1,5 @@
+---
+Dev
+---
+* v0: PolyCLEAN working, use of Rascil in order to define everything
+* v1: Remove Rascil and use it onl for the examples
