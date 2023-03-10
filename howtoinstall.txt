@@ -3,8 +3,18 @@
 git clone git@github.com:AdriaJ/pyfw-lasso.git
 cd pyfw-lasso
 
-conda create --name pyfwl --strict-channel-priority --channel=conda-forge --file=conda/requirements.txt
-conda activate pyfwl
+conda create --name pclean --strict-channel-priority --channel=conda-forge --file=conda/requirements.txt
+conda activate pclean
 
 pip install -e .
 pytest
+
+# Rascil
+git clone https://gitlab.com/ska-telescope/external/rascil.git
+cd rascil
+make install_requirements
+pip3 install git-lfs
+git lfs install
+git-lfs pull
+
+echo src/rascil/ >> ~/PycharmProjects/polyclean/.gitignore
