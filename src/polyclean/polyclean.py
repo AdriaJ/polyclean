@@ -29,8 +29,10 @@ __all__ = [
 class PolyCLEAN(pyfwl.PolyatomicFWforLasso):
     def __init__(
             self,
-            visibility_template: Visibility,
-            image_model: Image,
+            # visibility_template: Visibility,
+            # image_model: Image,
+            uvwlambda: pyct.NDArray,
+            direction_cosines: pyct.NDArray,
             data: pyct.NDArray,
             lambda_: float = None,
             lambda_factor: float = 0.1,
@@ -56,28 +58,18 @@ class PolyCLEAN(pyfwl.PolyatomicFWforLasso):
                     "dcv",
             ),
     ):
-        if flagged_bool_mask is None:
-            flagged_bool_mask = np.any(visibility_template.uvw.data != 0., axis=-1)
-        self._mask = flagged_bool_mask  # mask is 2D (times, baselines)
-        self._nufft_eps = nufft_eps
+        if flagged_bool_mask is not None:
+            # mask is 2D (times, baselines)
+            self._uvw = uvwlambda[flagged_bool_mask].reshape(-1, 3)
+        else:
+            self._uvw = uvwlambda
 
-        self._vt = visibility_template
-        # \/\/\/\/\/\/\/\/\/ Direction cosines could be entered as input
-        self._image_model = image_add_ra_dec_grid(image_model)
-        directions = SkyCoord(
-            ra=self._image_model.ra_grid.data.ravel() * u.rad,
-            dec=self._image_model.dec_grid.data.ravel() * u.rad,
-            frame="icrs",
-            equinox="J2000",
-        )
-        self._direction_cosines = np.stack(skycoord_to_lmn(directions, self._vt.phasecentre), axis=-1)
-        self._image_shape = self._image_model.pixels.data.shape[-2:]
-        # /\/\/\/\/\/\/\/\/\
-        uvwlambda = self._vt.uvw_lambda.data
-        self._flagged_uvw = uvwlambda[self._mask].reshape(-1, 3)
+        self._direction_cosines = direction_cosines
+        self._nufft_eps = nufft_eps
         forwardOp = generatorVisOp(self._direction_cosines,
-                                   self._flagged_uvw,
+                                   self._uvw,
                                    self._nufft_eps)
+
         self._minor_cycles = minor_cycles + 1
         if self._minor_cycles > 1:
             self._dirty_image = forwardOp.adjoint(data)
@@ -85,14 +77,14 @@ class PolyCLEAN(pyfwl.PolyatomicFWforLasso):
             if kernel_center is None:
                 kernel_center = np.array(self._kernel.shape) // 2
             self._kernel_center = kernel_center
-            self.convOp = pycop.Stencil(stencil_coefs=self._kernel,
-                                        center=self._kernel_center,
-                                        arg_shape=self._image_shape,
-                                        boundary=0.).T
+            # self.convOp = pycop.Stencil(stencil_coefs=self._kernel,
+            #                             center=self._kernel_center,
+            #                             arg_shape=self._image_shape,
+            #                             boundary=0.).T
             stop_rate = self._minor_cycles
             verbosity = verbosity * stop_rate
             start = time.time()
-            self.convOp(np.zeros(self.convOp.shape[1]))
+            # self.convOp(np.zeros(self.convOp.shape[1]))
             print("Compile time for stencils: {:.3f}".format(time.time() - start))
 
         if lambda_ is None:
@@ -116,24 +108,24 @@ class PolyCLEAN(pyfwl.PolyatomicFWforLasso):
             log_var=log_var,
         )
 
-    def df_grad(self) -> pyct.NDArray:
-        if self._astate["idx"] % self._minor_cycles == 0:
-            return super().df_grad()
-        else:
-            return pycop.QuadraticFunc(self.convOp,
-                                       -1. * InnerProductRef(reference=self._dirty_image),
-                                       init_lipschitz=False
-                                       ).grad(self._mstate["x"])
+    # def df_grad(self) -> pyct.NDArray:
+    #     if self._astate["idx"] % self._minor_cycles == 0:
+    #         return super().df_grad()
+    #     else:
+    #         return pycop.QuadraticFunc(self.convOp,
+    #                                    -1. * InnerProductRef(reference=self._dirty_image),
+    #                                    init_lipschitz=False
+    #                                    ).grad(self._mstate["x"])
 
     def rs_forwardOp(self, support_indices: pyct.NDArray) -> pyco.LinOp:
         return generatorVisOp(self._direction_cosines[support_indices],
-                              self._flagged_uvw,
+                              self._uvw,
                               self._nufft_eps)
 
     def rs_data_fid(self, support_indices: pyct.NDArray) -> pyco.DiffFunc:
         if self._astate["idx"] % self._minor_cycles == 0:
             rs_forwardOp = generatorVisOp(self._direction_cosines[support_indices],
-                                          self._flagged_uvw,
+                                          self._uvw,
                                           self._nufft_eps)
             return 0.5 * pycop.SquaredL2Norm(dim=self.forwardOp.shape[0]).argshift(-self.data) * rs_forwardOp
         else:
@@ -299,7 +291,7 @@ def psf_kernel(direction_cosines, flagged_uvwlambda, npixel, intensity_rate=.1):
 def diagnostics_polyclean(pclean, log=False):
     import matplotlib.pyplot as plt
 
-    hist = pclean.stats[1]
+    hist = pclean.stats()[1]
 
     plt.figure(figsize=(15, 8))
     plt.suptitle("Performance analysis of PolyCLEAN")
