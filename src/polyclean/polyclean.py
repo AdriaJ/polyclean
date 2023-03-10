@@ -57,6 +57,7 @@ class PolyCLEAN(pyfwl.PolyatomicFWforLasso):
                     "x",
                     "dcv",
             ),
+            **kwargs,
     ):
         if flagged_bool_mask is not None:
             # mask is 2D (times, baselines)
@@ -118,7 +119,7 @@ class PolyCLEAN(pyfwl.PolyatomicFWforLasso):
     #                                    ).grad(self._mstate["x"])
 
     def rs_forwardOp(self, support_indices: pyct.NDArray) -> pyco.LinOp:
-        return generatorVisOp(self._direction_cosines[support_indices],
+        return generatorVisOp(self._direction_cosines[support_indices, :],
                               self._uvw,
                               self._nufft_eps)
 
