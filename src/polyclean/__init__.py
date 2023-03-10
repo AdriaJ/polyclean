@@ -1,2 +1,2 @@
-from poly.polyclean import *
-from .image_utils import *
+from polyclean.polyclean import *
+from polyclean.image_utils import *
