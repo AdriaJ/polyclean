@@ -6,6 +6,7 @@ from rascil.data_models import Image, Visibility
 import pycsou.abc as pyca
 import pycsou.util.ptype as pyct
 
+
 import polyclean as pc
 
 
@@ -75,9 +76,10 @@ def reco_clean(
     clean_residual = image_model.copy(deep=True)
     clean_residual['pixels'].data[0, 0, ...] = \
         tmp_clean_residual['pixels'].data[0, 0, npixel // 2: npixel + npixel // 2, npixel // 2: npixel + npixel // 2]
-    dt = time.time()-start
+    dt = time.time() - start
 
     return clean_comp, clean_residual, dt
+
 
 def reco_pclean(
         uvwlambda: pyct.NDArray,
@@ -149,12 +151,41 @@ def reco_pclean_plus(
                  tau=1 / fit_parameters["diff_lipschitz"])
     print("\tSolved in {:.3f} seconds ({} iterations)".format(lsr_apgd.stats()[1]['duration'][-1],
                                                               lsr_apgd.stats()[1]['N_iter'][-1]))
-    solution["lsr_x"] = lsr_apgd.stats()[0]["x"]
+    res = np.zeros_like(sol)
+    res[support] = lsr_apgd.stats()[0]["x"]
+    solution["lsr_x"] = res
 
     return solution, hist
 
 
 def reco_apgd(
-
+        uvwlambda: pyct.NDArray,
+        direction_cosines: pyct.NDArray,
+        data: pyct.NDArray,
+        lambda_: float,
+        apgd_parameters: dict,
+        fit_parameters: dict,
 ):
-    pass
+    import pycsou.operator as pycop
+    import pycsou.opt.solver as pycsol
+    import pyfwl
+
+    forwardOp = pc.generatorVisOp(direction_cosines,
+                                  uvwlambda,
+                                  apgd_parameters["nufft_eps"])
+    data_fid_synth = 0.5 * pycop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-data) * forwardOp
+    regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, None))
+    apgd = pycsol.PGD(data_fid_synth, regul_synth, show_progress=False)
+    print("APGD: Solving ...")
+    start = time.time()
+    apgd.fit(**fit_parameters)
+        # x0=np.zeros(forwardOp.shape[1], dtype="float64"),
+        # # stop_crit=(min_iter_stop & apgd.default_stop_crit()) | duration_stop,
+        # stop_crit=(min_iter_stop & pycos.AbsError(eps=hist["Memorize[objective_func]"][-1],
+        #                                           var="objective_func")) | duration_stop,
+        # track_objective=True,
+        # tau=1 / (fOp_lipschitz ** 2),
+    print("\tSolved in {:.3f} seconds".format(time.time() - start))
+
+    return apgd.stats()
+
