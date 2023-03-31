@@ -9,11 +9,12 @@ import pycsou.abc.operator as pyco
 import pycsou.operator as pycop
 import pycsou.util.complex as pycuc
 
-from rascil.data_models import Visibility, Image
-from rascil.processing_components import (
-    image_add_ra_dec_grid,
-)
-from rascil.processing_components.util import skycoord_to_lmn
+import polyclean.image_utils as ut
+
+from ska_sdp_datamodels.image import Image
+from ska_sdp_datamodels.visibility.vis_model import Visibility
+from ska_sdp_func_python.util import skycoord_to_lmn
+
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 
@@ -26,7 +27,7 @@ __all__ = [
 ]
 
 
-class PolyCLEAN(pyfwl.PolyatomicFWforLasso):
+class PolyCLEAN(pyfwl.PFWLasso):
     def __init__(
             self,
             # visibility_template: Visibility,
@@ -123,17 +124,17 @@ class PolyCLEAN(pyfwl.PolyatomicFWforLasso):
                               self._uvw,
                               self._nufft_eps)
 
-    def rs_data_fid(self, support_indices: pyct.NDArray) -> pyco.DiffFunc:
-        if self._astate["idx"] % self._minor_cycles == 0:
-            rs_forwardOp = generatorVisOp(self._direction_cosines[support_indices],
-                                          self._uvw,
-                                          self._nufft_eps)
-            return 0.5 * pycop.SquaredL2Norm(dim=self.forwardOp.shape[0]).argshift(-self.data) * rs_forwardOp
-        else:
-            ss = pycop.SubSample(self.forwardOp.shape[1], support_indices)
-            return pycop.QuadraticFunc(ss * self.convOp * ss.T,
-                                       -1. * InnerProductRef(reference=ss(self._dirty_image)),
-                                       init_lipschitz=False)
+    # def rs_data_fid(self, support_indices: pyct.NDArray) -> pyco.DiffFunc:
+    #     if self._astate["idx"] % self._minor_cycles == 0:
+    #         rs_forwardOp = generatorVisOp(self._direction_cosines[support_indices, :],
+    #                                       self._uvw,
+    #                                       self._nufft_eps)
+    #         return 0.5 * pycop.SquaredL2Norm(dim=self.forwardOp.shape[0]).argshift(-self.data) * rs_forwardOp
+    #     else:
+    #         ss = pycop.SubSample(self.forwardOp.shape[1], support_indices)
+    #         return pycop.QuadraticFunc(ss * self.convOp * ss.T,
+    #                                    -1. * InnerProductRef(reference=ss(self._dirty_image)),
+    #                                    init_lipschitz=False)
 
 
 def generatorVisOp(direction_cosines: pyct.NDArray,
@@ -203,7 +204,7 @@ def generatorVisOp(direction_cosines: pyct.NDArray,
 #
 #         self._vt = visibility_template
 #         # \/\/\/\/\/\/\/\/\/ Direction cosines could be entered as input
-#         self._image_model = image_add_ra_dec_grid(image_model)
+#         self._image_model = ut.image_add_ra_dec_grid(image_model)
 #         directions = SkyCoord(
 #             ra=self._image_model.ra_grid.data.ravel() * u.rad,
 #             dec=self._image_model.dec_grid.data.ravel() * u.rad,
@@ -213,7 +214,7 @@ def generatorVisOp(direction_cosines: pyct.NDArray,
 #         self._direction_cosines = np.stack(skycoord_to_lmn(directions, self._vt.phasecentre), axis=-1)
 #         self._image_shape = self._image_model.pixels.data.shape[-2:]
 #         # /\/\/\/\/\/\/\/\/\
-#         uvwlambda = self._vt.uvw_lambda.data
+#         uvwlambda = self._vt.visibility_acc.uvw_lambda
 #         self._flagged_uvw = uvwlambda[self._mask].reshape(-1, 3)
 #         measurementOp = generatorVisOp(self._direction_cosines,
 #                                    self._flagged_uvw,

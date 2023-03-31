@@ -3,9 +3,10 @@ import time
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 
-from rascil.processing_components.util import skycoord_to_lmn
-from rascil.processing_components import create_named_configuration, create_visibility
-from rascil.data_models import PolarisationFrame
+from ska_sdp_func_python.util import skycoord_to_lmn
+from ska_sdp_datamodels.visibility import create_visibility
+from ska_sdp_datamodels.configuration.config_create import create_named_configuration
+from ska_sdp_datamodels.science_data_model.polarisation_model import PolarisationFrame
 
 import polyclean.reconstructions as reco
 import polyclean.image_utils as ut
@@ -45,10 +46,7 @@ if __name__ == "__main__":
 
     frequency = np.array([1e8])
     channel_bandwidth = np.array([1e6])
-    phasecentre = SkyCoord(
-        ra=+15.0 * u.deg, dec=-45.0 * u.deg, frame="icrs", equinox="J2000"
-    )
-
+    phasecentre = SkyCoord(ra=+15.0 * u.deg, dec=-45.0 * u.deg, frame="icrs", equinox="J2000")
     sky_im, sc = ut.generate_point_sources(npoints,
                                            fov_deg,
                                            npixel,
@@ -79,7 +77,7 @@ if __name__ == "__main__":
         phasecentre=phasecentre,
         polarisation_frame=PolarisationFrame("stokesI"),
     )
-    uvwlambda = vt.uvw_lambda.data.reshape(-1, 3)
+    uvwlambda = vt.visibility_acc.uvw_lambda.reshape(-1, 3)
     flags_bool = np.any(uvwlambda != 0., axis=-1)
     flagged_uvwlambda = uvwlambda[flags_bool]
 
@@ -88,7 +86,7 @@ if __name__ == "__main__":
                                   vlambda=flagged_uvwlambda,
                                   nufft_eps=nufft_eps)
     start = time.time()
-    fOp_lipschitz = forwardOp.lipschitz(tol=1.)
+    fOp_lipschitz = forwardOp.lipschitz(tol=1., tight=True)
     lipschitz_time = time.time() - start
     print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)".format(lipschitz_time))
 
@@ -117,81 +115,24 @@ if __name__ == "__main__":
     }
 
     # Computations
-    data, hist = reco.reco_pclean_plus(flagged_uvwlambda, direction_cosines, measurements, lambda_, pcleanp_parameters, fit_parameters)
+    data, hist, hist_lsr = reco.reco_pclean_plus(flagged_uvwlambda, direction_cosines, measurements, lambda_, pcleanp_parameters, fit_parameters)
 
     ### Results
     print("PolyCLEAN final DCV (before post processing): {:.3f}".format(data["dcv"]))
     print("Iterations: {}".format(int(hist['N_iter'][-1])))
-    print("Final sparsity: {}".format(np.count_nonzero(data["lsr_x"])))
+    print("Final sparsity: {}".format(np.count_nonzero(data["x"])))
 
     # Visualization
-    from rascil.processing_components import invert_visibility, fit_psf, restore_cube
-    from astropy.wcs.utils import skycoord_to_pixel
-    from matplotlib import colors
+    from ska_sdp_func_python.imaging import invert_visibility
+    from ska_sdp_func_python.image import restore_cube, fit_psf
 
     pclean_comp = sky_im.copy(deep=True)
-    pclean_comp.pixels.data[0, 0] = data["lsr_x"].reshape((npixel, )*2)
+    pclean_comp.pixels.data[0, 0] = data["x"].reshape((npixel, )*2)
     psf, sumwt = invert_visibility(vt, sky_im, context="ng", dopsf=True)
     clean_beam = fit_psf(psf)
     pclean_restored = restore_cube(pclean_comp, None, None, clean_beam)
     sky_im_restored = restore_cube(sky_im, None, None, clean_beam)
 
+    ut.plot_source_reco_diff(sky_im_restored, pclean_restored, title="PolyCLEAN+ Convolved", suptitle="Comparison", sc=sc)
+
     # ut.compare_3_images(sky_im_restored, pclean_comp, pclean_restored, titles=["components", "convolution"], sc=sc)
-
-    source = sky_im_restored
-    im1 = pclean_restored
-    normalize = False
-    chan, pol = 0, 0
-
-    if normalize:
-        vmax, vmin = source['pixels'].data.max(), 0.
-    else:
-        vmax, vmin = None, None
-    cm = "Greys"
-    fig = plt.figure(figsize=(15, 6))
-    axes = fig.subplots(1, 3, sharex=True, sharey=True, subplot_kw={'projection': source.image_acc.wcs.sub([1, 2]),
-                                                                    'frameon': False})
-
-    ax = axes[0]
-    source_array = np.real(source["pixels"].data[chan, pol, :, :])
-    im = ax.imshow(source_array, origin="lower", cmap=cm, vmin=vmin, vmax=vmax)
-    ax.set_ylabel(source.image_acc.wcs.wcs.ctype[1])
-    ax.set_xlabel(source.image_acc.wcs.wcs.ctype[0])
-    ax.set_title("Source image")
-    if sc is not None:
-        for component in sc:
-            x, y = skycoord_to_pixel(component.direction, source.image_acc.wcs, 0, "wcs")
-            ax.scatter(x, y, marker=".", color="red", s=1, alpha=.9)
-    fig.colorbar(im, orientation="vertical", shrink=0.8, ax=ax)
-
-    ax = axes[1]
-    ax.coords[1].set_ticklabel_visible(False)
-    ax.coords[1].set_axislabel('')
-    ax.set_xlabel(source.image_acc.wcs.wcs.ctype[0])
-    im_array = np.real(im1["pixels"].data[chan, pol, :, :])
-    ims = ax.imshow(im_array, origin="lower", cmap=cm, vmin=vmin, vmax=vmax)
-    ax.set_title("PolyCLEAN Convolved")
-    fig.colorbar(ims, ax=ax, orientation="vertical", shrink=0.8)
-    if sc is not None:
-        for component in sc:
-            x, y = skycoord_to_pixel(component.direction, im1.image_acc.wcs, 0, "wcs")
-            ax.scatter(x, y, marker=".", color="red", s=1, alpha=.9)
-
-    ax = axes[2]
-    ax.coords[1].set_ticklabel_visible(False)
-    ax.coords[1].set_axislabel('')
-    ax.set_xlabel(source.image_acc.wcs.wcs.ctype[0])
-    diff_array = im_array - np.real(source['pixels'].data[chan, pol])
-    vmax_diff = diff_array.max()
-    vmin_diff = diff_array.min()
-    vext = max(vmax_diff, -vmin_diff)
-    ims = ax.imshow(diff_array, norm=colors.CenteredNorm(halfrange=vext), origin="lower", cmap="bwr")
-    ax.set_title("Difference")
-    fig.colorbar(ims, ax=ax, orientation="vertical", shrink=0.8)
-    if sc is not None:
-        for component in sc:
-            x, y = skycoord_to_pixel(component.direction, im1.image_acc.wcs, 0, "wcs")
-            ax.scatter(x, y, marker=".", color="red", s=1, alpha=.9)
-
-    fig.suptitle("Comparison of the reconstructions")
-    plt.show()

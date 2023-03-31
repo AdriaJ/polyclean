@@ -1,7 +1,8 @@
 import time
 import numpy as np
 
-from rascil.data_models import Image, Visibility
+from ska_sdp_datamodels.image import Image
+from ska_sdp_datamodels.visibility.vis_model import Visibility
 
 import pycsou.abc as pyca
 import pycsou.util.ptype as pyct
@@ -14,19 +15,23 @@ def stop_crit(
         tmax: float,
         min_iter: int,
         eps: float,
+        value: float = None,
 ) -> pyca.StoppingCriterion:
     import datetime as dt
     import pycsou.opt.stop as pycos
 
     duration_stop = pycos.MaxDuration(t=dt.timedelta(seconds=tmax))
     min_iter_stop = pycos.MaxIter(n=min_iter)
-    stop_crit = pycos.RelError(
-        eps=eps,
-        var="objective_func",
-        f=None,
-        norm=2,
-        satisfy_all=True,
-    )
+    if value is None:
+        stop_crit = pycos.RelError(
+            eps=eps,
+            var="objective_func",
+            f=None,
+            norm=2,
+            satisfy_all=True,
+        )
+    else:
+        stop_crit = pycos.AbsError(eps=value, var="objective_func")
     return (stop_crit & min_iter_stop) | duration_stop
 
 
@@ -37,7 +42,6 @@ def get_clean_default_params():
         "fractional_threshold": 0.001,
         "window_shape": "quarter",
         "gain": 0.7,
-        "scales": [0, 3, 10, 30],
         "algorithm": 'hogbom',
     }
     return DEFAULT_CLEAN_PARAMS
@@ -49,12 +53,13 @@ def reco_clean(
         clean_paramters: dict,
         context: str = "ng",
 ):
-    from rascil.processing_components import (
+    from ska_sdp_func_python.imaging import (
         predict_visibility,
-        create_image_from_visibility,
         invert_visibility,
-        deconvolve_cube,
+        create_image_from_visibility,
     )
+    from ska_sdp_func_python.image import deconvolve_cube
+
     cellsize = abs(sky_image.coords["x"].data[1] - sky_image.coords["x"].data[0])
     npixel = sky_image.dims["x"]
 
@@ -64,6 +69,7 @@ def reco_clean(
     clean_model = create_image_from_visibility(predicted_visi, cellsize=cellsize, npixel=2 * npixel)
     dirty, sumwt_dirty = invert_visibility(predicted_visi, clean_model, context=context)
     psf, sumwt = invert_visibility(predicted_visi, image_model, context=context, dopsf=True)
+    print("CLEAN: Solving...")
     start = time.time()
     tmp_clean_comp, tmp_clean_residual = deconvolve_cube(
         dirty,
@@ -77,6 +83,7 @@ def reco_clean(
     clean_residual['pixels'].data[0, 0, ...] = \
         tmp_clean_residual['pixels'].data[0, 0, npixel // 2: npixel + npixel // 2, npixel // 2: npixel + npixel // 2]
     dt = time.time() - start
+    print("\tSolved in {:.3f} seconds".format(dt))
 
     return clean_comp, clean_residual, dt
 
@@ -103,7 +110,7 @@ def reco_pclean(
     pclean.fit(**fit_parameters)
     print("\tSolved in {:.3f} seconds".format(time.time() - pclean_time))
     if diagnostics:
-        pc.diagnostics_polyclean(pclean, log=log_diagnostics)
+        pclean.diagnostics(log=log_diagnostics)
     return pclean.stats()
 
 
@@ -132,7 +139,7 @@ def reco_pclean_plus(
     pclean.fit(**fit_parameters)
     print("\tSolved in {:.3f} seconds".format(time.time() - pclean_time))
     if diagnostics:
-        pc.diagnostics_polyclean(pclean, log=log_diagnostics)
+        pclean.diagnostics(log=log_diagnostics)
     solution, hist = pclean.stats()
 
     s = stop_crit(tmax=hist["duration"][-1] * pclean_parameters.get("overtime_lsr", .2),
@@ -149,13 +156,15 @@ def reco_pclean_plus(
                  stop_crit=s,
                  track_objective=True,
                  tau=1 / fit_parameters["diff_lipschitz"])
-    print("\tSolved in {:.3f} seconds ({} iterations)".format(lsr_apgd.stats()[1]['duration'][-1],
-                                                              lsr_apgd.stats()[1]['N_iter'][-1]))
+    data_lsr, hist_lsr = lsr_apgd.stats()
+    print("\tSolved in {:.3f} seconds ({:d} iterations)".format(hist_lsr['duration'][-1],
+                                                              int(hist_lsr['N_iter'][-1])))
     res = np.zeros_like(sol)
-    res[support] = lsr_apgd.stats()[0]["x"]
-    solution["lsr_x"] = res
+    res[support] = data_lsr["x"]
+    solution["x_old"] = solution.pop("x")
+    solution["x"] = res
 
-    return solution, hist
+    return solution, hist, hist_lsr
 
 
 def reco_apgd(
@@ -187,5 +196,8 @@ def reco_apgd(
         # tau=1 / (fOp_lipschitz ** 2),
     print("\tSolved in {:.3f} seconds".format(time.time() - start))
 
-    return apgd.stats()
+    sol, hist = apgd.stats()
+    dcv = abs(forwardOp.adjoint(data - forwardOp(sol["x"]))).max()/lambda_
+    sol["dcv"] = dcv
 
+    return sol, hist

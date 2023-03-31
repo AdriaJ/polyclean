@@ -10,8 +10,8 @@ pip install -e .
 pytest
 
 # Rascil
-git clone https://gitlab.com/ska-telescope/external/rascil.git
-cd rascil
+git clone https://gitlab.com/ska-telescope/external/rascil-main.git
+cd rascil-main
 make install_requirements
 pip3 install git-lfs
 git lfs install

@@ -1,0 +1,171 @@
+[reconstruction of point sources]
+
+Comparison metrics:
+    MSE between convolved images
+    Sparsity of the solution
+    QQ-plot matched reconstruction
+    Run time of the methods
+
+Diagnostics of PolyCLEAN methods:
+    Dual certificate value
+    Final value objective
+    Support size along iterations
+    Number of candidates along iterations
+
+---------------------------------
+[Simulation parameters]
+
+fov_deg = [
+    1,
+    5,  # focus on 5 degrees for the moment
+    10,
+    ]
+rmax = [
+    300,
+    750,
+    ]
+npoints = [
+    20,  # calibrators-like
+    100,
+    500,
+    ]
+npixels = [
+    512,
+    1024,
+    ]
+
+---------------------------------
+
+algorithm = CLEAN
+    parameters = [
+        niter=10000,
+        threshold=0.001,
+        fractional_threshold=0.001,
+        window_shape="quarter",
+        gain=0.7,
+        algorithm='hogbom',
+        ]
+    inputs = [
+        dirty : rascil.Image,
+        psf : rascil.Image,
+        ]
+    outputs = [
+        components : rascil.Image,
+        residual : rascil.Image,
+        ]
+    additional_metrics = [
+        runtime: float  # to compute and expose
+    ]
+
+algorithm = PolyCLEAN
+    parameters = [
+        lambda_factor=0.05,
+        ms_threshold=0.8,
+        init_correction_prec=1e-1,
+        final_correction_prec=1e-4,
+        min_correction_steps=5,
+        remove_positions=True,
+        nufft_eps=1e-3,
+        show_progress=False
+    ]
+    inputs = [
+        flagged_uvwlambda : pycsou.NDArray,  # for the baselines and the flagged visibilities
+        direction_cosines : pycsou.NDArray,  # for the direction cosines
+        measurements : pycsou.NDArray,
+        lambda_ : float,
+    ]
+    fit_parameters = [
+        stop : pycsou.StoppingCriterion,
+        positivity_constraint=True,
+        diff_lipschitz: float,
+    ]
+    outputs = [
+        data : dict
+            {
+            "x" : pycsou.NDArray,
+            "dcv" : float
+            }
+        hist : dict[numpy.ndarray]
+            {
+            'iteration',
+            'RelError[objective_func]',
+            'N_iter',
+            'duration',
+            'Memorize[objective_func]',
+            }
+    ]
+
+algorithm = PolyCLEAN+
+    parameters = [
+        lambda_factor=0.12,
+        ms_threshold=0.8,
+        init_correction_prec=1e-1,
+        final_correction_prec=1e-4,
+        min_correction_steps=5,
+        remove_positions=True,
+        nufft_eps=1e-3,
+        overtime_lsr=0.2,
+    ]
+    inputs = [
+        flagged_uvwlambda : pycsou.NDArray,  # for the baselines and the flagged visibilities
+        direction_cosines : pycsou.NDArray,  # for the direction cosines
+        measurements : pycsou.NDArray,
+        lambda_ : float,
+    ]
+    fit_parameters = [
+        stop : pycsou.StoppingCriterion,
+        positivity_constraint=True,
+        diff_lipschitz: float,
+    ]
+    outputs = [
+        data : dict
+            {
+            "x" : pycsou.NDArray,
+            "dcv" : float
+            }
+        hist : dict[numpy.ndarray]
+            {
+            'iteration',
+            'RelError[objective_func]',
+            'N_iter',
+            'duration',
+            'Memorize[objective_func]',
+            }
+    ]
+    additional_metrics = [
+        lsr_duration : float
+    ]
+
+algorithm = APGD
+    parameters = [
+        nufft_eps=1e-3,
+    ]
+    inputs = [
+        flagged_uvwlambda : pycsou.NDArray,  # for the baselines and the flagged visibilities
+        direction_cosines : pycsou.NDArray,  # for the direction cosines
+        measurements : pycsou.NDArray,
+        lambda_ : float,
+    ]
+    fit_parameters = [
+        stop : pycsou.StoppingCriterion,
+        tau: float,
+        x0=np.zeros(forwardOp.shape[1], dtype="float64"),
+        track_objective=True,
+    ]
+    outputs = [
+        data : dict
+            {
+            "x" : pycsou.NDArray,
+            }
+        hist : dict[numpy.ndarray]
+            {
+            'iteration',
+            'RelError[objective_func]',
+            'N_iter',
+            'duration',
+            'Memorize[objective_func]',
+            }
+    ]
+    additional_metrics = [
+        dcv : float
+    ]

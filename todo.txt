@@ -11,3 +11,12 @@ v0
 * reconstruction APGD
 * try them in another final_correction_prec
 * enrich the file with a full comparison
+* Comment the files and functions
+* Uniformize the plot function on the examples
+* Integrate quality assessment from RASCIL (QA)
+
+
+-----
+tests
+-----
+* test adjoint and forward together
