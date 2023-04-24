@@ -18,3 +18,6 @@ git lfs install
 git-lfs pull
 
 echo src/rascil/ >> ~/PycharmProjects/polyclean/.gitignore
+
+# Update Pycsou and pyfwl:
+pip install pyfwl --upgrade

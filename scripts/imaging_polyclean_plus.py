@@ -17,21 +17,21 @@ matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 
 
-seed = np.random.randint(0, 1000)  # np.random.randint(0, 1000)  # 492
-rmax = 300.  # 2000.
+seed = 248  # np.random.randint(0, 1000)
+rmax = 500.  # 2000.
 times = np.zeros([1])
-fov_deg = 6.5
-npixel = 256  # 512  # 384 #  128 * 2
-npoints = 100
+fov_deg = 5
+npixel = 512  # 512  # 256
+npoints = 200
 nufft_eps = 1e-3
 
-lambda_factor = .12
+lambda_factor = .05
 
 eps = 1e-3
 tmax = 240.
-min_iter = 20
-ms_threshold = 0.75
-init_correction_prec = 1e-1
+min_iter = 5
+ms_threshold = 0.8
+init_correction_prec = 5e-2
 final_correction_prec = 1e-4
 remove = True
 min_correction_steps = 3
@@ -107,11 +107,12 @@ if __name__ == "__main__":
         "nufft_eps": nufft_eps,
         "show_progress": False,
         "overtime_lsr": 0.2,
+        "rate_lsr": 0.0001,
     }
     fit_parameters = {
         "stop_crit": stop_crit,
         "positivity_constraint": True,
-        "diff_lipschitz": fOp_lipschitz ** 2
+        "diff_lipschitz": fOp_lipschitz ** 2,
     }
 
     # Computations
@@ -126,13 +127,33 @@ if __name__ == "__main__":
     from ska_sdp_func_python.imaging import invert_visibility
     from ska_sdp_func_python.image import restore_cube, fit_psf
 
-    pclean_comp = sky_im.copy(deep=True)
-    pclean_comp.pixels.data[0, 0] = data["x"].reshape((npixel, )*2)
+    pcleanp_comp = sky_im.copy(deep=True)
+    pcleanp_comp.pixels.data[0, 0] = data["x"].reshape((npixel,) * 2)
     psf, sumwt = invert_visibility(vt, sky_im, context="ng", dopsf=True)
     clean_beam = fit_psf(psf)
-    pclean_restored = restore_cube(pclean_comp, None, None, clean_beam)
+    pcleanp_restored = restore_cube(pcleanp_comp, None, None, clean_beam)
     sky_im_restored = restore_cube(sky_im, None, None, clean_beam)
 
-    ut.plot_source_reco_diff(sky_im_restored, pclean_restored, title="PolyCLEAN+ Convolved", suptitle="Comparison", sc=sc)
+    print("MSE: {:.4e}".format(ut.MSE(sky_im_restored, pcleanp_restored)[0, 0]))
+
+    ut.plot_source_reco_diff(sky_im_restored, pcleanp_restored, title="PolyCLEAN+ Convolved", suptitle="Comparison", sc=sc)
+
+    # dual = forwardOp.adjoint(measurements - forwardOp(data["x_old"]))/lambda_
+    # dual_im = sky_im.copy(deep=True)
+    # dual_im.pixels.data[0, 0] = dual.reshape((npixel,) * 2)
+    # ut.plot_certificate(dual_im, sc=sc, title="Dual certificate at convergence", level=1.)
 
     # ut.compare_3_images(sky_im_restored, pclean_comp, pclean_restored, titles=["components", "convolution"], sc=sc)
+
+    ut.plot_image(pcleanp_comp, sc=sc)
+
+    # import pycsou.operator as pycop
+    # op = pycop.NUFFT.type3(x=np.array([]).reshape((0, 3)),  # direction_cosines,
+    #                        z=2 * np.pi * flagged_uvwlambda,
+    #                        real=True, isign=-1, eps=nufft_eps,
+    #                        chunked=True,
+    #                        parallel=False,
+    #                        )
+    # x_chunks, z_chunks = op.auto_chunk(max_mem=10)
+    # op.allocate(x_chunks, z_chunks, direct_eval_threshold=10_000)
+    # op.diagnostic_plot("z")

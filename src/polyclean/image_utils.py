@@ -10,7 +10,6 @@ from ska_sdp_datamodels.sky_model import SkyComponent
 from ska_sdp_func_python.sky_component import insert_skycomponent
 from ska_sdp_datamodels.image.image_create import create_image
 
-
 # from rascil.processing_components import image_add_ra_dec_grid
 from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
@@ -23,10 +22,10 @@ __all__ = [
     "MSE",
 ]
 
-
 DEFAULT_PHASECENTER = SkyCoord(
-        ra=+15.0 * u.deg, dec=-45.0 * u.deg, frame="icrs", equinox="J2000"
-    )
+    ra=+15.0 * u.deg, dec=-45.0 * u.deg, frame="icrs", equinox="J2000"
+)
+
 
 def generate_point_sources(npoints: int,
                            fov_deg: float,
@@ -35,7 +34,7 @@ def generate_point_sources(npoints: int,
                            radius_rate: float = .9,
                            phasecentre=DEFAULT_PHASECENTER,
                            frequency=np.array([1e8]),
-                           channel_bandwidth = np.array([1e6]),
+                           channel_bandwidth=np.array([1e6]),
                            seed: int = None,
                            ):
     fov = fov_deg * np.pi / 180
@@ -51,8 +50,8 @@ def generate_point_sources(npoints: int,
         sc_coord = SkyCoord(ra=sc_ra * u.rad, dec=sc_dec * u.rad, frame="icrs", equinox="J2000")
         sc.append(
             SkyComponent(sc_coord, flux=np.r_[sc_flux].reshape(1, 1), frequency=np.r_[frequency],
-                                shape='Point',
-                                polarisation_frame=PolarisationFrame("stokesI")))
+                         shape='Point',
+                         polarisation_frame=PolarisationFrame("stokesI")))
     # w = WCS(naxis=4)
     # pol = PolarisationFrame.fits_codes[polarisation_frame.type]
     # if npol > 1:
@@ -80,7 +79,6 @@ def generate_point_sources(npoints: int,
     #     wcs=w,
     # )
 
-
     sky_im = create_image(
         npixel=npixel,
         cellsize=cellsize,
@@ -95,6 +93,7 @@ def generate_point_sources(npoints: int,
     sky_im.pixels.data /= sky_im.pixels.data.max()
     return sky_im, sc
 
+
 def image_add_ra_dec_grid(im):
     """Add ra, dec coordinates"""
     _, _, ny, nx = im["pixels"].shape
@@ -106,6 +105,7 @@ def image_add_ra_dec_grid(im):
         ra_grid=(("x", "y"), ra_grid), dec_grid=(("x", "y"), dec_grid)
     )
     return im
+
 
 def image_wcs(ds):
     """
@@ -129,7 +129,7 @@ def image_wcs(ds):
         dpol = 1.0
     if nchan > 1:
         channel_bandwidth = (ds["frequency"].data[-1] - ds["frequency"].data[0]) / (
-            nchan - 1
+                nchan - 1
         )
     else:
         channel_bandwidth = freq
@@ -152,6 +152,7 @@ def image_wcs(ds):
         w.wcs.equinox = 2000.0
 
     return w
+
 
 def display_image_list(
         dirty: Image,
@@ -237,6 +238,7 @@ def MSE(im1: Image, im2: Image):
     diff = im1['pixels'].data - im2['pixels'].data
     return (np.linalg.norm(diff, axis=(-1, -2)) ** 2) / n
 
+
 def RMSE(im1: Image, im2: Image):
     return np.sqrt(MSE(im1, im2))
 
@@ -312,7 +314,8 @@ def display_image_error(
         ax.coords[1].set_ticklabel_visible(False)
         ax.coords[1].set_axislabel('')
         ax.set_xlabel(im.image_acc.wcs.wcs.ctype[0])
-        diff_array = im_array - np.real(source['pixels'].data[chan, pol]) # abs(np.real(source['pixels'].data[chan, pol]) - im_array)
+        diff_array = im_array - np.real(
+            source['pixels'].data[chan, pol])  # abs(np.real(source['pixels'].data[chan, pol]) - im_array)
         if idx == 0:
             vmax_diff = diff_array.max()
             vmin_diff = diff_array.min()
@@ -330,23 +333,8 @@ def display_image_error(
     plt.show()
 
 
-def display_image(image: Image, sc=None, title="", vmax=None, cmap="Greys"):
-    chan, pol = 0, 0
 
-    fig = plt.figure(figsize=(12, 10))
-    ax = fig.add_subplot(111, projection=image.image_acc.wcs.sub([1, 2]))
-    im_array = np.real(image["pixels"].data[chan, pol, :, :])
-    im = ax.imshow(im_array, origin="lower", cmap=cmap, vmax=vmax, interpolation="none")
-    ax.set_ylabel(image.image_acc.wcs.wcs.ctype[1])
-    ax.set_xlabel(image.image_acc.wcs.wcs.ctype[0])
-    ax.set_title(title)
-    if sc is not None:
-        for component in sc:
-            x, y = skycoord_to_pixel(component.direction, image.image_acc.wcs, 0, "wcs")
-            ax.scatter(x, y, marker=".", color="red", s=1, alpha=.6)
-    fig.colorbar(im, orientation="vertical", shrink=0.8, ax=ax)
 
-    plt.show()
 
 def compare_4_images(
         source: Image,
@@ -420,6 +408,7 @@ def compare_4_images(
     fig.suptitle(suptitle)
     plt.show()
 
+
 def compare_3_images(
         source: Image,
         im1: Image,
@@ -472,8 +461,8 @@ def compare_3_images(
     fig.suptitle(suptitle)
     plt.show()
 
-def qq_plot_point_sources(sky_im, clean_comp, pclean_comp, titles):
 
+def qq_plot_point_sources(sky_im, clean_comp, pclean_comp, titles):
     support_solution = np.nonzero(sky_im.pixels.data[0, 0])
     source_values = sky_im.pixels.data[0, 0][support_solution]
     clean_values0 = clean_comp.pixels.data[0, 0][support_solution]
@@ -510,8 +499,8 @@ def qq_plot_point_sources(sky_im, clean_comp, pclean_comp, titles):
     plt.ylim([0., 1.])
     plt.show()
 
-def qq_plot_point_sources_stacked(sky_im, clean_comp, pclean_comp,reweighted_comp, title=""):
 
+def qq_plot_point_sources_stacked(sky_im, clean_comp, pclean_comp, reweighted_comp, title=""):
     support_solution = np.nonzero(sky_im.pixels.data[0, 0])
     source_values = sky_im.pixels.data[0, 0][support_solution]
     clean_values0 = clean_comp.pixels.data[0, 0][support_solution]
@@ -577,7 +566,7 @@ def myplot_uvcoverage(vis_list, ax=None, plot_file=None, title="UV coverage", **
         plt.plot(-u, -v, ".", color="r", markersize=0.2)
     plt.xlabel("U (wavelengths)")
     plt.ylabel("V (wavelengths)")
-    #plt.legend()
+    # plt.legend()
     plt.title(title)
     if plot_file is not None:
         plt.savefig(plot_file)
@@ -647,6 +636,24 @@ def plot_analysis_reconstruction(
     fig.suptitle(suptitle)
     plt.show()
 
+def display_image(image: Image, sc=None, title="", vmax=None, cmap="Greys"):
+    chan, pol = 0, 0
+
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.add_subplot(111, projection=image.image_acc.wcs.sub([1, 2]))
+    im_array = np.real(image["pixels"].data[chan, pol, :, :])
+    im = ax.imshow(im_array, origin="lower", cmap=cmap, vmax=vmax, interpolation="none")
+    ax.set_ylabel(image.image_acc.wcs.wcs.ctype[1])
+    ax.set_xlabel(image.image_acc.wcs.wcs.ctype[0])
+    ax.set_title(title)
+    if sc is not None:
+        for component in sc:
+            x, y = skycoord_to_pixel(component.direction, image.image_acc.wcs, 0, "wcs")
+            ax.scatter(x, y, marker=".", color="red", s=1, alpha=.6)
+    fig.colorbar(im, orientation="vertical", shrink=0.8, ax=ax)
+
+    plt.show()
+
 def plot_image(
         image,
         cmap="cubehelix_r",
@@ -667,6 +674,7 @@ def plot_image(
             ax.scatter(x, y, marker=".", color="red", s=1, alpha=.6)
     fig.colorbar(im, orientation="vertical", shrink=0.8, ax=ax)
     plt.show()
+
 
 def plot_source_reco_diff(source, im1, title="", suptitle="", normalize=False, cmap="cubehelix_r", sc=None):
     chan, pol = 0, 0
@@ -724,3 +732,25 @@ def plot_source_reco_diff(source, im1, title="", suptitle="", normalize=False, c
     plt.show()
 
 
+def plot_certificate(
+        image,
+        cmap="cubehelix_r",
+        sc=None,
+        title="",
+        level=1.,
+):
+    chan, pol = 0, 0
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.add_subplot(111, projection=image.image_acc.wcs.sub([1, 2]))
+    im_array = np.real(image["pixels"].data[chan, pol, :, :])
+    im = ax.imshow(im_array, origin="lower", cmap=cmap, interpolation="none")
+    ax.set_ylabel(image.image_acc.wcs.wcs.ctype[1])
+    ax.set_xlabel(image.image_acc.wcs.wcs.ctype[0])
+    ax.contour(im_array, levels=[level], colors="c")
+    ax.set_title(title)
+    if sc is not None:
+        for component in sc:
+            x, y = skycoord_to_pixel(component.direction, image.image_acc.wcs, 0, "wcs")
+            ax.scatter(x, y, marker=".", color="red", s=1, alpha=.6)
+    fig.colorbar(im, orientation="vertical", shrink=0.8, ax=ax)
+    plt.show()

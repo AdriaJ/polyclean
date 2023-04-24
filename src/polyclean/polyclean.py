@@ -47,6 +47,7 @@ class PolyCLEAN(pyfwl.PFWLasso):
             minor_cycles: int = 0,
             kernel: pyct.NDArray = np.ones((1, 1)),
             kernel_center: pyct.NDArray = None,
+            chunked=False,
             *,
             folder=None,  # : typ.Optional[pyct.PathLike] = None,
             exist_ok: bool = False,
@@ -68,9 +69,12 @@ class PolyCLEAN(pyfwl.PFWLasso):
 
         self._direction_cosines = direction_cosines
         self._nufft_eps = nufft_eps
+        self._chunked = chunked
         forwardOp = generatorVisOp(self._direction_cosines,
                                    self._uvw,
-                                   self._nufft_eps)
+                                   self._nufft_eps,
+                                   chunked=chunked,
+                                   )
 
         self._minor_cycles = minor_cycles + 1
         if self._minor_cycles > 1:
@@ -120,9 +124,18 @@ class PolyCLEAN(pyfwl.PFWLasso):
     #                                    ).grad(self._mstate["x"])
 
     def rs_forwardOp(self, support_indices: pyct.NDArray) -> pyco.LinOp:
-        return generatorVisOp(self._direction_cosines[support_indices, :],
-                              self._uvw,
-                              self._nufft_eps)
+        if support_indices.size == 0:
+            return pycop.NullOp(shape=(self.forwardOp.shape[0], 0))
+        else:
+            return generatorVisOp(self._direction_cosines[support_indices, :],
+                                  self._uvw,
+                                  self._nufft_eps,
+                                  chunked=self._chunked,
+                                  )
+        # return generatorVisOp(self._direction_cosines[support_indices, :],
+        #                       self._uvw,
+        #                       self._nufft_eps,
+        #                       )
 
     # def rs_data_fid(self, support_indices: pyct.NDArray) -> pyco.DiffFunc:
     #     if self._astate["idx"] % self._minor_cycles == 0:
@@ -139,7 +152,8 @@ class PolyCLEAN(pyfwl.PFWLasso):
 
 def generatorVisOp(direction_cosines: pyct.NDArray,
                    vlambda: pyct.NDArray,
-                   nufft_eps: float = 1e-3
+                   nufft_eps: float = 1e-3,
+                   chunked=True,
                    ) -> pycop.NUFFT:  # pyct.OpT ??
     r"""
 
@@ -154,12 +168,18 @@ def generatorVisOp(direction_cosines: pyct.NDArray,
     -------
 
     """
+    if direction_cosines.shape[0] * vlambda.shape[0] < 10_000:
+        # direct computation for small size FT
+        nufft_eps = 0.
+
     op = pycop.NUFFT.type3(x=direction_cosines, z=2 * np.pi * vlambda, real=True, isign=-1, eps=nufft_eps,
-                           # chunked=True,
-                           # parallel=True,
+                           chunked=chunked,
+                           parallel=chunked,
+                           enable_warnings=False,
                            )
-    # x_chunks, z_chunks = op.auto_chunk()  # auto-determine a good x/z chunking strategy
-    # op.allocate(x_chunks, z_chunks, enable_warnings=False)
+    if chunked:
+        x_chunks, z_chunks = op.auto_chunk(max_mem=10)
+        op.allocate(x_chunks, z_chunks, direct_eval_threshold=10_000)
     n = direction_cosines[..., :, -1]
     diag = pycop.DiagonalOp(1 / (n + 1.))
     op = op * diag
@@ -278,7 +298,7 @@ class InnerProductRef(pyco.LinFunc):
 def psf_kernel(direction_cosines, flagged_uvwlambda, npixel, intensity_rate=.1):
     forwardOp = generatorVisOp(direction_cosines=direction_cosines,
                                vlambda=flagged_uvwlambda,
-                               nufft_eps=1e-4)
+                               nufft_eps=1e-4,)
     simulated_vis_psf = pycuc.view_as_real(np.ones(forwardOp.shape[0] // 2).astype(complex))
     full_psf = forwardOp.adjoint(simulated_vis_psf).reshape((npixel, npixel))
     index_center = np.array(np.unravel_index(np.argmax(full_psf), (npixel,) * 2))

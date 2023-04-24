@@ -119,7 +119,7 @@ def reco_pclean_plus(
         direction_cosines: pyct.NDArray,
         data: pyct.NDArray,
         lambda_: float,
-        pclean_parameters: dict,
+        pcleanp_parameters: dict,
         fit_parameters: dict,
         diagnostics: bool = True,
         log_diagnostics: bool = False,
@@ -127,12 +127,15 @@ def reco_pclean_plus(
     import pycsou.operator as pycop
     import pycsou.opt.solver as pycsol
 
+    rate_tk = pcleanp_parameters.get("rate_lsr", 0.)
+    assert rate_tk >= 0.
+
     pclean = pc.PolyCLEAN(
         uvwlambda,
         direction_cosines,
         data,
         lambda_=lambda_,
-        **pclean_parameters,
+        **pcleanp_parameters,
     )
     print("PolyCLEAN: Solving...")
     pclean_time = time.time()
@@ -142,20 +145,22 @@ def reco_pclean_plus(
         pclean.diagnostics(log=log_diagnostics)
     solution, hist = pclean.stats()
 
-    s = stop_crit(tmax=hist["duration"][-1] * pclean_parameters.get("overtime_lsr", .2),
-                  min_iter=pclean_parameters.get("min_iter_lsr", 5),
-                  eps=pclean_parameters.get("eps_lsr", 1e-4))
+    s = stop_crit(tmax=hist["duration"][-1] * pcleanp_parameters.get("overtime_lsr", .2),
+                  min_iter=pcleanp_parameters.get("min_iter_lsr", 5),
+                  eps=pcleanp_parameters.get("eps_lsr", 1e-4))
     sol = solution["x"]
     support = np.nonzero(sol)[0]
     rs_forwardOp = pclean.rs_forwardOp(support)
     rs_data_fid = .5 * pycop.SquaredL2Norm(dim=rs_forwardOp.shape[0]).argshift(-data) * rs_forwardOp
+    if rate_tk > 0.:
+        rs_data_fid = rs_data_fid + 0.5 * rate_tk * fit_parameters["diff_lipschitz"] * pycop.SquaredL2Norm(dim=rs_forwardOp.shape[1])
     rs_regul = pycop.PositiveOrthant(dim=rs_forwardOp.shape[1])
     lsr_apgd = pycsol.PGD(rs_data_fid, rs_regul, show_progress=False)
     print("Least squares reweighting:")
     lsr_apgd.fit(x0=sol[support],
                  stop_crit=s,
                  track_objective=True,
-                 tau=1 / fit_parameters["diff_lipschitz"])
+                 tau=1 / (fit_parameters["diff_lipschitz"] * (1 + rate_tk)))
     data_lsr, hist_lsr = lsr_apgd.stats()
     print("\tSolved in {:.3f} seconds ({:d} iterations)".format(hist_lsr['duration'][-1],
                                                               int(hist_lsr['N_iter'][-1])))
