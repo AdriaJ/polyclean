@@ -20,4 +20,7 @@ git-lfs pull
 echo src/rascil/ >> ~/PycharmProjects/polyclean/.gitignore
 
 # Update Pycsou and pyfwl:
-pip install pyfwl --upgrade
+pip install -e . --upgrade
+
+# Update conda-managed packages
+conda install --strict-channel-priority --channel=conda-forge --file=conda/requirements.txt

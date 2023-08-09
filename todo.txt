@@ -20,3 +20,4 @@ v0
 tests
 -----
 * test adjoint and forward together
+* tests for gaussian kernels convolution
