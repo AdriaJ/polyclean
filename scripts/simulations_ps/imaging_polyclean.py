@@ -21,25 +21,29 @@ matplotlib.use("Qt5Agg")
 
 
 seed = 64  # np.random.randint(0, 1000)  # np.random.randint(0, 1000)  # 492
-rmax = 500.  # 2000.
-times = np.zeros([1])
+rmax = 800.  # 2000.
+times = (np.arange(7)-3) * np.pi/9  # 7 angles from -pi/3 to pi/3
 fov_deg = 5
-npixel = 512  # 512  # 384 #  128 * 2
+npixel = 1024 # 512  # 384 #  128 * 2
 npoints = 200
 nufft_eps = 1e-3
+psnrdb = 20
 
-lambda_factor = .05
+lambda_factor = .01
 
 eps = 1e-4
 tmax = 240.
 min_iter = 5
 ms_threshold = 0.8
 init_correction_prec = 5e-2
-final_correction_prec = 1e-4
+final_correction_prec = min(1e-4, eps)
 remove = True
 min_correction_steps = 3
+max_correction_steps = 1000
 lock = False
 lock_steps = 6
+diagnostics = True
+log_diagnostics = False
 
 if __name__ == "__main__":
     if seed is None:
@@ -92,13 +96,19 @@ if __name__ == "__main__":
     ### Simulation of the measurements
     forwardOp = pc.generatorVisOp(direction_cosines=direction_cosines,
                                   vlambda=flagged_uvwlambda,
-                                  nufft_eps=nufft_eps)
+                                  nufft_eps=nufft_eps,
+                                  chunked=False)
     start = time.time()
-    fOp_lipschitz = forwardOp.lipschitz(tol=1., tight=True)
+    fOp_lipschitz = forwardOp.lipschitz(tol=10., tight=True)
     lipschitz_time = time.time() - start
     print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)".format(lipschitz_time))
+    # print(fOp_lipschitz)
 
-    measurements = forwardOp(sky_im.pixels.data.reshape(-1))
+    noiseless_measurements = forwardOp(sky_im.pixels.data.reshape(-1))
+    noise_scale = np.abs(noiseless_measurements).max() * 10 ** (-psnrdb / 20) / np.sqrt(2)
+    noise = np.random.normal(0, noise_scale, noiseless_measurements.shape)
+    measurements = noiseless_measurements + noise
+
     dirty_image = forwardOp.adjoint(measurements)
 
     ### Reconsruction
@@ -113,6 +123,7 @@ if __name__ == "__main__":
         "init_correction_prec": init_correction_prec,
         "final_correction_prec": final_correction_prec,
         "min_correction_steps": min_correction_steps,
+        "max_correction_steps": max_correction_steps,
         "remove_positions": remove,
         "nufft_eps": nufft_eps,
         "show_progress": False,
@@ -121,19 +132,32 @@ if __name__ == "__main__":
         "stop_crit": stop_crit,
         "positivity_constraint": True,
         "diff_lipschitz": fOp_lipschitz ** 2,
-        "lock_reweighting": lock
+        "lock_reweighting": lock,
+        "precision_rule": lambda k: 10 ** (-k / 10),
     }
 
     # Computations
-    data, hist = reco.reco_pclean(flagged_uvwlambda, direction_cosines, measurements, lambda_,
-                                  pclean_parameters, fit_parameters)
+    pclean = pc.PolyCLEAN(
+        flagged_uvwlambda,
+        direction_cosines,
+        measurements,
+        lambda_=lambda_,
+        **pclean_parameters
+    )
+    print("PolyCLEAN: Solving...")
+    pclean_time = time.time()
+    pclean.fit(**fit_parameters)
+    print("\tSolved in {:.3f} seconds".format(dt_pclean := time.time() - pclean_time))
+    if diagnostics:
+        pclean.diagnostics(log=log_diagnostics)
+    data, hist = pclean.stats()
+    pclean_residual = forwardOp.adjoint(measurements - forwardOp(data["x"]))
 
     ### Results
     print("PolyCLEAN final DCV: {:.3f}".format(data["dcv"]))
+    print(f"Final value of the objective function: {hist['Memorize[objective_func]'][-1]:.3e}")
     print("Iterations: {}".format(int(hist['N_iter'][-1])))
-    print("Final sparsity: {}".format(np.count_nonzero(data["x"])))
-
-
+    print("Final sparsity of the components: {}".format(np.count_nonzero(data["x"])))
 
     pclean_comp = sky_im.copy(deep=True)
     pclean_comp.pixels.data[0, 0] = data["x"].reshape((npixel, )*2)
@@ -141,20 +165,36 @@ if __name__ == "__main__":
     clean_beam = fit_psf(psf)
     pclean_restored = restore_cube(pclean_comp, None, None, clean_beam)
     sky_im_restored = restore_cube(sky_im, None, None, clean_beam)
-    # print("MSE with convolved source: {:.3e}".format(ut.MSE(sky_im_restored, pclean_restored)[0, 0]))
+    pclean_residual_im = sky_im.copy(deep=True)
+    pclean_residual_im.pixels.data = pclean_residual.reshape(pclean_residual_im.pixels.data.shape) / (measurements.shape[0]//2)
 
-    ut.plot_source_reco_diff(sky_im_restored, pclean_restored, title="PolyCLEAN Convolved", suptitle="Comparison: lock", sc=sc)
+
+    ut.plot_source_reco_diff(sky_im_restored, pclean_restored, title="PolyCLEAN Convolved", suptitle="Comparison", sc=sc)
 
     # ut.compare_3_images(sky_im_restored, pclean_comp, pclean_restored, titles=["components", "convolution"], sc=sc)
 
     from ska_sdp_func_python.imaging import predict_visibility
     predicted_visi = predict_visibility(vt, sky_im, context="ng")
     dirty_rascil, _ = invert_visibility(predicted_visi, sky_im, context="ng", dopsf=False, normalise=True)
-    # print("MSE dirty image: {:.3e}".format(ut.MSE(sky_im_restored, dirty_rascil)[0, 0]))
-    print("Errors:\n\tDirty image: {:.2e}\n\tCLEAN image: {:.2e}\n\tCLEAN components: {:.2e}".format(
-        ut.MSE(dirty_rascil, sky_im_restored)[0][0],
-        ut.MSE(sky_im_restored, sky_im_restored)[0][0],
-        ut.MSE(sky_im, pclean_comp)[0][0]))
+
+    print("CLEAN beam (MSE/MAD):\n\tDirty image: {:.2e}/{:.2e}\n\tComponents convolved: {:.2e}/{:.2e}\n\tRaw components: {:.2e}/{:.2e}".format(
+        ut.MSE(dirty_rascil, sky_im_restored), ut.MAD(dirty_rascil, sky_im_restored),
+        ut.MSE(pclean_restored, sky_im_restored), ut.MAD(pclean_restored, sky_im_restored),
+        ut.MSE(sky_im, pclean_comp), ut.MAD(sky_im, pclean_comp)
+        )
+    )
+
+    sharp_beam = clean_beam.copy()
+    sharp_beam["bmin"] = clean_beam["bmin"] / 2
+    sharp_beam["bmaj"] = clean_beam["bmaj"] / 2
+    pclean_comp_sharp = restore_cube(pclean_comp, None, None, sharp_beam)
+    sky_im_sharp = restore_cube(sky_im, None, None, sharp_beam)
+
+    print("Sharp beam (MSE/MAD):\n\tDirty image: {:.2e}/{:.2e}\n\tComponents convolved: {:.2e}/{:.2e}".format(
+        ut.MSE(dirty_rascil, sky_im_sharp), ut.MAD(dirty_rascil, sky_im_sharp),
+        ut.MSE(pclean_comp_sharp, sky_im_sharp), ut.MAD(pclean_comp_sharp, sky_im_sharp),
+        )
+    )
 
     # print(np.allclose(dirty_image/dirty_image.max(), dirty_rascil.pixels.data.flatten()/dirty_image.max()))
 
@@ -166,9 +206,9 @@ if __name__ == "__main__":
     # diff.pixels.data = (dirty_image.reshape((1, 1, npixel, npixel)) - dirty_rascil.pixels.data)/dirty_image.max()
     # ut.plot_image(diff, title="Diff", cmap="bwr")
 
-    import matplotlib.pyplot as plt
-    fluxs = np.array([comp.flux[0,0] for comp in sc])
-    fluxs /= fluxs.max()
-    plt.figure()
-    plt.hist(fluxs, bins=50)
-    plt.show()
+    # import matplotlib.pyplot as plt
+    # fluxs = np.array([comp.flux[0,0] for comp in sc])
+    # fluxs /= fluxs.max()
+    # plt.figure()
+    # plt.hist(fluxs, bins=50)
+    # plt.show()

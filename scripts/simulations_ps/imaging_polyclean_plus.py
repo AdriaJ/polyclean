@@ -12,6 +12,9 @@ import polyclean.reconstructions as reco
 import polyclean.image_utils as ut
 import polyclean.polyclean as pc
 
+import pycsou.operator as pycop
+import pycsou.opt.solver as pycsol
+
 import matplotlib
 matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
@@ -32,9 +35,11 @@ tmax = 240.
 min_iter = 5
 ms_threshold = 0.8
 init_correction_prec = 5e-2
-final_correction_prec = 1e-4
+final_correction_prec = min(eps, 1e-4)
 remove = True
 min_correction_steps = 3
+
+diagnostics=True
 
 if __name__ == "__main__":
     if seed is None:
@@ -107,7 +112,7 @@ if __name__ == "__main__":
         "nufft_eps": nufft_eps,
         "show_progress": False,
         "overtime_lsr": 0.2,
-        "rate_lsr": 0.0001,
+        "rate_tk": 0.,
     }
     fit_parameters = {
         "stop_crit": stop_crit,
@@ -116,19 +121,62 @@ if __name__ == "__main__":
     }
 
     # Computations
-    data, hist, hist_lsr = reco.reco_pclean_plus(flagged_uvwlambda, direction_cosines, measurements, lambda_, pcleanp_parameters, fit_parameters)
+    pclean = pc.PolyCLEAN(
+        flagged_uvwlambda,
+        direction_cosines,
+        measurements,
+        lambda_=lambda_,
+        **pcleanp_parameters,
+    )
+    print("PolyCLEAN: Solving...")
+    pclean_time = time.time()
+    pclean.fit(**fit_parameters)
+    print("\tSolved in {:.3f} seconds".format(time.time() - pclean_time))
+    if diagnostics:
+        pclean.diagnostics()
+    solution, hist = pclean.stats()
+
+    s = reco.stop_crit(tmax=hist["duration"][-1] * pcleanp_parameters.get("overtime_lsr", .2),
+                  min_iter=pcleanp_parameters.get("min_iter_lsr", 5),
+                  eps=pcleanp_parameters.get("eps_lsr", 1e-4))
+
+    sol = solution["x"]
+    support = np.nonzero(sol)[0]
+    rs_forwardOp = pclean.rs_forwardOp(support)
+    rs_data_fid = .5 * pycop.SquaredL2Norm(dim=rs_forwardOp.shape[0]).argshift(-measurements) * rs_forwardOp
+    rate_tk = pcleanp_parameters.get("rate_lsr", 0.)
+    if rate_tk > 0.:
+        rs_data_fid = rs_data_fid + 0.5 * rate_tk * fit_parameters["diff_lipschitz"] * pycop.SquaredL2Norm(dim=rs_forwardOp.shape[1])
+    rs_regul = pycop.PositiveOrthant(dim=rs_forwardOp.shape[1])
+    lsr_apgd = pycsol.PGD(rs_data_fid, rs_regul, show_progress=False)
+    print("Least squares reweighting:")
+    lsr_apgd.fit(x0=sol[support],
+                 stop_crit=s,
+                 track_objective=True,
+                 tau=1 / (fit_parameters["diff_lipschitz"] * (1 + rate_tk)))
+    data_lsr, hist_lsr = lsr_apgd.stats()
+    print("\tSolved in {:.3f} seconds ({:d} iterations)".format(hist_lsr['duration'][-1],
+                                                              int(hist_lsr['N_iter'][-1])))
+    res = np.zeros_like(sol)
+    res[support] = data_lsr["x"]
+    solution["x_old"] = solution.pop("x")
+    solution["x"] = res
 
     ### Results
-    print("PolyCLEAN final DCV (before post processing): {:.3f}".format(data["dcv"]))
+    print("PolyCLEAN final DCV (before post processing): {:.3f}".format(solution["dcv"]))
     print("Iterations: {}".format(int(hist['N_iter'][-1])))
-    print("Final sparsity: {}".format(np.count_nonzero(data["x"])))
+    print("Final sparsity: {}".format(np.count_nonzero(solution["x"])))
+    print("Value of the LASSO objective function:\n\t- PolyCLEAN: {:.3f}\n\t- PolyCLEAN+: {:.3f}".format(
+        pclean._data_fidelity(solution["x_old"])[0] +  pclean._penalty(solution["x_old"])[0],
+        pclean._data_fidelity(solution["x"])[0] + pclean._penalty(solution["x"])[0]
+    ))
 
     # Visualization
     from ska_sdp_func_python.imaging import invert_visibility
     from ska_sdp_func_python.image import restore_cube, fit_psf
 
     pcleanp_comp = sky_im.copy(deep=True)
-    pcleanp_comp.pixels.data[0, 0] = data["x"].reshape((npixel,) * 2)
+    pcleanp_comp.pixels.data[0, 0] = solution["x"].reshape((npixel,) * 2)
     psf, sumwt = invert_visibility(vt, sky_im, context="ng", dopsf=True)
     clean_beam = fit_psf(psf)
     pcleanp_restored = restore_cube(pcleanp_comp, None, None, clean_beam)
@@ -145,7 +193,7 @@ if __name__ == "__main__":
 
     # ut.compare_3_images(sky_im_restored, pclean_comp, pclean_restored, titles=["components", "convolution"], sc=sc)
 
-    ut.plot_image(pcleanp_comp, sc=sc)
+    ut.plot_image(pcleanp_comp, sc=sc, title="PolyCLEAN+ Components")
 
     # import pycsou.operator as pycop
     # op = pycop.NUFFT.type3(x=np.array([]).reshape((0, 3)),  # direction_cosines,
@@ -157,3 +205,15 @@ if __name__ == "__main__":
     # x_chunks, z_chunks = op.auto_chunk(max_mem=10)
     # op.allocate(x_chunks, z_chunks, direct_eval_threshold=10_000)
     # op.diagnostic_plot("z")
+
+    ## Bayesian tests Highest Posterior Density
+    alpha = .05
+
+    tau_a = 4. * np.sqrt(np.log(3/alpha))
+    approx_HPD_thresh = hist["Memorize[objective_func]"][-1] + tau_a * npixel + npixel**2
+
+    x_srg = solution["x_old"].copy().reshape((npixel,)*2)
+    x_srg[npixel//2-10:npixel//2+10, npixel//2-10:npixel//2+10] = 0.1
+    pclean._data_fidelity(x_srg.flatten())[0] +  pclean._penalty(x_srg.flatten())[0]
+
+    # TODO: try more tests, seems good thought + illustrate
