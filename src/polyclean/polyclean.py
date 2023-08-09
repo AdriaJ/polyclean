@@ -44,6 +44,7 @@ class PolyCLEAN(pyfwl.PFWLasso):
             final_correction_prec: float = 1e-4,
             remove_positions: bool = True,
             min_correction_steps: int = 5,
+            max_correction_steps: int = 100,
             minor_cycles: int = 0,
             kernel: pyct.NDArray = np.ones((1, 1)),
             kernel_center: pyct.NDArray = None,
@@ -105,6 +106,7 @@ class PolyCLEAN(pyfwl.PFWLasso):
             final_correction_prec=final_correction_prec,
             remove_positions=remove_positions,
             min_correction_steps=min_correction_steps,
+            max_correction_steps=max_correction_steps,
             folder=folder,
             exist_ok=exist_ok,
             stop_rate=stop_rate,
@@ -153,12 +155,14 @@ class PolyCLEAN(pyfwl.PFWLasso):
 def generatorVisOp(direction_cosines: pyct.NDArray,
                    vlambda: pyct.NDArray,
                    nufft_eps: float = 1e-3,
-                   chunked=True,
+                   chunked=False,
+                   **kwargs,
                    ) -> pycop.NUFFT:  # pyct.OpT ??
     r"""
 
     Parameters
     ----------
+    chunked
     direction_cosines: NDArray
         This should be flagged beforehand so that only nonzero components are computed.
     vlambda
@@ -168,7 +172,9 @@ def generatorVisOp(direction_cosines: pyct.NDArray,
     -------
 
     """
-    if direction_cosines.shape[0] * vlambda.shape[0] < 10_000:
+    direct_eval_threshold = kwargs.get("direct_eval_threshold", 10_000)
+    max_mem = kwargs.get("max_mem", 10)
+    if direction_cosines.shape[0] * vlambda.shape[0] < direct_eval_threshold:
         # direct computation for small size FT
         nufft_eps = 0.
 
@@ -178,8 +184,8 @@ def generatorVisOp(direction_cosines: pyct.NDArray,
                            enable_warnings=False,
                            )
     if chunked:
-        x_chunks, z_chunks = op.auto_chunk(max_mem=10)
-        op.allocate(x_chunks, z_chunks, direct_eval_threshold=10_000)
+        x_chunks, z_chunks = op.auto_chunk(max_mem=max_mem)
+        op.allocate(x_chunks, z_chunks, direct_eval_threshold=direct_eval_threshold)
     n = direction_cosines[..., :, -1]
     diag = pycop.DiagonalOp(1 / (n + 1.))
     op = op * diag
