@@ -1,3 +1,6 @@
+"""
+Test imaging using MS file provided by RASCIL.
+"""
 import logging
 import sys
 
@@ -14,17 +17,14 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from rascil.processing_components.visibility import create_visibility_from_ms, list_ms
 from ska_sdp_func_python.imaging import (
-    predict_visibility,
     invert_visibility,
     create_image_from_visibility,
 )
 from ska_sdp_func_python.image import (
     deconvolve_cube,
     restore_cube,
-    fit_psf,
 )
 from ska_sdp_func_python.util import skycoord_to_lmn
-from ska_sdp_datamodels.science_data_model.polarisation_model import PolarisationFrame
 
 matplotlib.use("Qt5Agg")
 
@@ -32,12 +32,12 @@ context = "ng"
 filename2 = "3C277.1C.16channels.ms"  # 2498 times, 21 baselines, 16 channels, 1 polarization "I"
 algorithm = 'hogbom'
 npixel = 1024
-nufft_eps = 1e-5
+nufft_eps = 1e-3
 
 niter = 100
 
 lambda_factor = 0.15
-eps = 1e-5
+eps = 1e-4
 tmax = 240.
 min_iter = 5
 ms_threshold = 0.9
@@ -55,7 +55,8 @@ if __name__ == "__main__":
     log.addHandler(logging.StreamHandler(sys.stdout))
 
     datapath = "/home/jarret/PycharmProjects/polyclean/src/rascil-main/data/vis/"
-    filename1 = "ASKAP_example.ms"  # 19 times, 55 baselines, 192 channels, 4 polarization "XX"  "XY" "YX" "YY"
+    # filename1 = "ASKAP_example.ms"  # 19 times, 55 baselines, 192 channels, 4 polarization "XX"  "XY" "YX" "YY"
+    # filename2 = "3C277.1C.16channels.ms"  # 2498 times, 21 baselines, 16 channels, 1 polarization "I"
     msname = datapath + filename2
     print("Source and data descriptors in the measurement set: " + str(list_ms(msname)))
 
@@ -64,10 +65,12 @@ if __name__ == "__main__":
 
     print(vis.dims)
 
-    selected_vis = vis.isel(
-        {"time": slice(0, vis.dims["time"], 50),  # slice(vis.dims["time"]//2, vis.dims["time"]//2 + 1)
-         # "frequency": slice(vis.dims["frequency"] // 2, vis.dims["frequency"] // 2 + 1),
-         })
+    selected_vis = vis.isel({
+        "time": slice(vis.dims["time"] // 2, vis.dims["time"] // 2 + 1),
+        # "time": slice(0, vis.dims["time"], 50),
+        # "frequency": slice(vis.dims["frequency"] // 2, vis.dims["frequency"] // 2 + 1),
+    })
+    print("Selected visibility shape: " + str(selected_vis.dims))
     phasecentre = selected_vis.phasecentre
     image_model = create_image_from_visibility(selected_vis, npixel=npixel)
     cellsize = abs(image_model.coords["x"].data[1] - image_model.coords["x"].data[0])
@@ -79,7 +82,7 @@ if __name__ == "__main__":
     clean_model = create_image_from_visibility(selected_vis, npixel=2 * npixel)
     large_dirty, sumwt_dirty = invert_visibility(selected_vis, clean_model, context=context)
     psf, sumwt = invert_visibility(selected_vis, image_model, context=context, dopsf=True)
-    # ut.plot_image(dirty, title="Dirty image")
+    ut.plot_image(large_dirty, title="Dirty image")
     dirty = image_model.copy(deep=True)
     dirty['pixels'].data[0, 0, ...] = \
         large_dirty['pixels'].data[0, 0, npixel // 2: npixel + npixel // 2, npixel // 2: npixel + npixel // 2]
@@ -106,9 +109,9 @@ if __name__ == "__main__":
     print("\nSolved in {:.3f}".format(dt_clean))
 
     clean_comp_restored = restore_cube(clean_comp, psf, None)
-    # ut.plot_image(clean_comp_restored, title="CLEAN reco")
+    ut.plot_image(clean_comp_restored, title="CLEAN reco")
     clean_restored = restore_cube(clean_comp, psf, clean_residual)
-    # ut.plot_image(clean_restored, title="CLEAN reco + residual")
+    ut.plot_image(clean_restored, title="CLEAN reco + residual")
 
     ## PolyCLEAN reconstruction
 
@@ -137,6 +140,9 @@ if __name__ == "__main__":
 
     dirty_hvox_arr = forwardOp.adjoint(vis_array)
     lambda_ = lambda_factor * np.abs(dirty_hvox_arr).max()
+    dirty_hvox = image_model.copy(deep=True)
+    dirty_hvox.pixels.data[0, 0] = dirty_hvox_arr.reshape(dirty_hvox.pixels.data.shape)
+    ut.plot_image(dirty_hvox, title="Dirty image HVOX")
 
     # error_dirty = dirty.copy(deep=True)
     # error_dirty.pixels.data = dirty_hvox_arr.reshape(dirty.pixels.data.shape)/sumwt_dirty - dirty.pixels.data
