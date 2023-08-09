@@ -43,15 +43,20 @@ def generate_point_sources(npoints: int,
     rng = np.random.default_rng(seed)
 
     sc = []
+    maxi = 0.
     for i in range(npoints):
         sc_flux = rng.lognormal(sigma=flux_sigma)
+        if sc_flux > maxi:
+            maxi = sc_flux
         sc_ra = radius * rng.random() - radius / 2 + phasecentre.ra.rad
         sc_dec = radius * rng.random() - radius / 2 + phasecentre.dec.rad
         sc_coord = SkyCoord(ra=sc_ra * u.rad, dec=sc_dec * u.rad, frame="icrs", equinox="J2000")
         sc.append(
             SkyComponent(sc_coord, flux=np.r_[sc_flux].reshape(1, 1), frequency=np.r_[frequency],
-                         shape='Point',
-                         polarisation_frame=PolarisationFrame("stokesI")))
+                         polarisation_frame=PolarisationFrame("stokesI")
+                         ))
+    for s in sc:
+        s.flux /= maxi
     # w = WCS(naxis=4)
     # pol = PolarisationFrame.fits_codes[polarisation_frame.type]
     # if npol > 1:
@@ -235,8 +240,16 @@ def MSE(im1: Image, im2: Image):
     assert im1['pixels'].data.shape == im2['pixels'].data.shape, f"Got image 1 of shape {im1['pixels'].data.shape} " \
                                                                  f"and image 2 {im2['pixels'].data.shape}"
     n = im1['pixels'].data.shape[-1] * im1['pixels'].data.shape[-2]
-    diff = im1['pixels'].data - im2['pixels'].data
-    return (np.linalg.norm(diff, axis=(-1, -2)) ** 2) / n
+    diff = im1['pixels'].data[0, 0] - im2['pixels'].data[0, 0]
+    return np.sum(diff ** 2, axis=(-1, -2)) / n
+
+
+def MAD(im1: Image, im2: Image):
+    assert im1['pixels'].data.shape == im2['pixels'].data.shape, f"Got image 1 of shape {im1['pixels'].data.shape} " \
+                                                                 f"and image 2 {im2['pixels'].data.shape}"
+    n = im1['pixels'].data.shape[-1] * im1['pixels'].data.shape[-2]
+    diff = im1['pixels'].data[0, 0] - im2['pixels'].data[0, 0]
+    return np.sum(np.abs(diff)) / n
 
 
 def RMSE(im1: Image, im2: Image):
@@ -331,9 +344,6 @@ def display_image_error(
 
     fig.suptitle(suptitle)
     plt.show()
-
-
-
 
 
 def compare_4_images(
@@ -531,7 +541,7 @@ def qq_plot_point_sources_stacked(sky_im, clean_comp, pclean_comp, reweighted_co
     plt.show()
 
 
-def myplot_uvcoverage(vis_list, ax=None, plot_file=None, title="UV coverage", **kwargs):
+def myplot_uvcoverage(vis, title="UV coverage"):
     """Standard plot of uv coverage
 
     :param vis_list:
@@ -539,37 +549,21 @@ def myplot_uvcoverage(vis_list, ax=None, plot_file=None, title="UV coverage", **
     :param kwargs:
     :return:
     """
+    gvis = vis.where(vis["flags"] == 0)
+    bvis = vis.where(vis["flags"] > 0)
+    u = np.array(gvis.visibility_acc.uvw_lambda.reshape((-1, 3))[..., 0].flat)
+    v = np.array(gvis.visibility_acc.uvw_lambda.reshape((-1, 3))[..., 1].flat)
+    plt.plot(u, v, "o", color="b", markersize=0.5, label="Valid")
+    plt.plot(-u, -v, "o", color="b", markersize=0.5)
 
-    for ivis, ovis in enumerate(vis_list):
-        gvis = ovis.where(ovis["flags"] == 0)
-        bvis = ovis.where(ovis["flags"] > 0)
-        u = np.array(gvis.uvw_lambda.sel(spatial="u").data.flat)
-        v = np.array(gvis.uvw_lambda.sel(spatial="v").data.flat)
-        if ivis == 0:
-            plt.plot(u, v, ".", color="b", markersize=0.2, label="Unflagged")
-        else:
-            plt.plot(
-                u,
-                v,
-                ".",
-                color="b",
-                markersize=0.2,
-            )
-
-        plt.plot(-u, -v, ".", color="b", markersize=0.2)
-        u = np.array(bvis.uvw_lambda.sel(spatial="u").data.flat)
-        v = np.array(bvis.uvw_lambda.sel(spatial="v").data.flat)
-        if ivis == 0:
-            plt.plot(u, v, ".", color="r", markersize=0.2, label="Flagged")
-        else:
-            plt.plot(u, v, ".", color="r", markersize=0.2)
-        plt.plot(-u, -v, ".", color="r", markersize=0.2)
+    u = np.array(bvis.visibility_acc.uvw_lambda.reshape((-1, 3))[..., 0].flat)
+    v = np.array(bvis.visibility_acc.uvw_lambda.reshape((-1, 3))[..., 1].flat)
+    plt.plot(u, v, "o", color="r", markersize=0.5, label="Non-valid")
+    plt.plot(-u, -v, "o", color="r", markersize=0.5)
     plt.xlabel("U (wavelengths)")
     plt.ylabel("V (wavelengths)")
-    # plt.legend()
+    plt.legend()
     plt.title(title)
-    if plot_file is not None:
-        plt.savefig(plot_file)
     plt.show(block=False)
 
 
@@ -636,6 +630,7 @@ def plot_analysis_reconstruction(
     fig.suptitle(suptitle)
     plt.show()
 
+
 def display_image(image: Image, sc=None, title="", vmax=None, cmap="Greys"):
     chan, pol = 0, 0
 
@@ -654,20 +649,37 @@ def display_image(image: Image, sc=None, title="", vmax=None, cmap="Greys"):
 
     plt.show()
 
+
 def plot_image(
         image,
         cmap="cubehelix_r",
         sc=None,
         title="",
+        vmin=None,
+        integer_coordinate=True,
+        log=False,
 ):
     chan, pol = 0, 0
     fig = plt.figure(figsize=(12, 10))
     ax = fig.add_subplot(111, projection=image.image_acc.wcs.sub([1, 2]))
     im_array = np.real(image["pixels"].data[chan, pol, :, :])
-    im = ax.imshow(im_array, origin="lower", cmap=cmap, interpolation="none")
+    im = ax.imshow(im_array, origin="lower", cmap=cmap, interpolation="none", vmin=vmin)
     ax.set_ylabel(image.image_acc.wcs.wcs.ctype[1])
     ax.set_xlabel(image.image_acc.wcs.wcs.ctype[0])
     ax.set_title(title)
+    if integer_coordinate:
+        def format_coord(x, y):
+            col = round(x)
+            row = round(y)
+            # nrows, ncols = im_array.shape
+            # if 0 <= col < ncols and 0 <= row < nrows:
+            #     z = im_array[row, col]
+            #     return f'x={x:1.4f}, y={y:1.4f}, z={z:1.4f}'
+            # else:
+            #     return f'x={x:1.4f}, y={y:1.4f}'
+            return f'x={x:1.4f}, y={y:1.4f}'
+
+        ax.format_coord = format_coord
     if sc is not None:
         for component in sc:
             x, y = skycoord_to_pixel(component.direction, image.image_acc.wcs, 0, "wcs")
@@ -753,4 +765,40 @@ def plot_certificate(
             x, y = skycoord_to_pixel(component.direction, image.image_acc.wcs, 0, "wcs")
             ax.scatter(x, y, marker=".", color="red", s=1, alpha=.6)
     fig.colorbar(im, orientation="vertical", shrink=0.8, ax=ax)
+    plt.show()
+
+
+def plot_4_images(
+        im_list,
+        title_list,
+        suptitle="",
+        normalize=False,
+        cm='cubehelix_r'
+):
+    chan, pol = 0, 0
+    if normalize:
+        vmax, vmin = im_list[0]['pixels'].data.max(), 0.
+    else:
+        vmax, vmin = None, None
+
+    fig = plt.figure(figsize=(15, 6))
+    axes = fig.subplots(1, 4, sharex=True, sharey=True, subplot_kw={'projection': im_list[0].image_acc.wcs.sub([1, 2]),
+                                                                    'frameon': False})
+    for i in range(4):
+        ax = axes[i]
+        arr = np.real(im_list[i]["pixels"].data[chan, pol, :, :])
+        if i == 3:
+            ims = ax.imshow(arr, origin="lower", cmap=cm, vmin=None, vmax=None)
+        else:
+            ims = ax.imshow(arr, origin="lower", cmap=cm, vmin=vmin, vmax=vmax)
+        if i == 0:
+            ax.set_ylabel(im_list[i].image_acc.wcs.wcs.ctype[1])
+        else:
+            ax.coords[1].set_ticklabel_visible(False)
+            ax.coords[1].set_axislabel('')
+        ax.set_xlabel(im_list[i].image_acc.wcs.wcs.ctype[0])
+        ax.set_title(title_list[i])
+        fig.colorbar(ims, orientation="vertical", shrink=0.5, ax=ax)
+
+    fig.suptitle(suptitle)
     plt.show()
