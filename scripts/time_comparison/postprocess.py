@@ -14,7 +14,7 @@ use("Qt5Agg")
 
 folder = "/home/jarret/PycharmProjects/polyclean/scripts/time_comparison/"
 filename1 = "res300_600_900.pkl"
-filenames = ["res1500.pkl"]
+filenames = ["res1200_1500.pkl", "res2000.pkl"]
 
 if __name__ == "__main__":
     with open(folder + filename1, 'rb') as file:
@@ -70,6 +70,11 @@ if __name__ == "__main__":
     dcvs.pop('CLEAN')
     dcv = pd.DataFrame.from_dict(dcvs)
     dcv.index = rmax
+
+    # Obejctive function
+    objective_func.pop('CLEAN')
+    obj = pd.DataFrame.from_dict({k: [arr[0] for arr in objective_func[k]] for k in objective_func.keys()})
+    obj.index = rmax
 
     # Summary
     summ = pd.DataFrame.from_dict({"rmax": rmax, "N pixels": npixels, "Lipschitz time": lips_durations},)

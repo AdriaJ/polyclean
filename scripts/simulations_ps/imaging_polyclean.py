@@ -17,16 +17,17 @@ import polyclean.image_utils as ut
 import polyclean.polyclean as pc
 
 import matplotlib
+
 matplotlib.use("Qt5Agg")
 
-
 seed = 64  # np.random.randint(0, 1000)  # np.random.randint(0, 1000)  # 492
-rmax = 800.  # 2000.
-times = (np.arange(7)-3) * np.pi/9  # 7 angles from -pi/3 to pi/3
+rmax = 900.  # 2000.
+times = (np.arange(7) - 3) * np.pi / 9  # 7 angles from -pi/3 to pi/3
 fov_deg = 5
-npixel = 1024 # 512  # 384 #  128 * 2
+npixel = 1920  # 512  # 384 #  128 * 2
 npoints = 200
 nufft_eps = 1e-3
+chunked = False
 psnrdb = 20
 
 lambda_factor = .01
@@ -97,7 +98,7 @@ if __name__ == "__main__":
     forwardOp = pc.generatorVisOp(direction_cosines=direction_cosines,
                                   vlambda=flagged_uvwlambda,
                                   nufft_eps=nufft_eps,
-                                  chunked=False)
+                                  chunked=chunked)
     start = time.time()
     fOp_lipschitz = forwardOp.lipschitz(tol=10., tight=True)
     lipschitz_time = time.time() - start
@@ -125,7 +126,6 @@ if __name__ == "__main__":
         "min_correction_steps": min_correction_steps,
         "max_correction_steps": max_correction_steps,
         "remove_positions": remove,
-        "nufft_eps": nufft_eps,
         "show_progress": False,
     }
     fit_parameters = {
@@ -138,10 +138,12 @@ if __name__ == "__main__":
 
     # Computations
     pclean = pc.PolyCLEAN(
-        flagged_uvwlambda,
-        direction_cosines,
-        measurements,
+        data=measurements,
+        uvwlambda=flagged_uvwlambda,
+        direction_cosines=direction_cosines,
         lambda_=lambda_,
+        chunked=chunked,
+        nufft_eps=nufft_eps,
         **pclean_parameters
     )
     print("PolyCLEAN: Solving...")
@@ -160,27 +162,30 @@ if __name__ == "__main__":
     print("Final sparsity of the components: {}".format(np.count_nonzero(data["x"])))
 
     pclean_comp = sky_im.copy(deep=True)
-    pclean_comp.pixels.data[0, 0] = data["x"].reshape((npixel, )*2)
+    pclean_comp.pixels.data[0, 0] = data["x"].reshape((npixel,) * 2)
     psf, sumwt = invert_visibility(vt, sky_im, context="ng", dopsf=True)
     clean_beam = fit_psf(psf)
     pclean_restored = restore_cube(pclean_comp, None, None, clean_beam)
     sky_im_restored = restore_cube(sky_im, None, None, clean_beam)
     pclean_residual_im = sky_im.copy(deep=True)
-    pclean_residual_im.pixels.data = pclean_residual.reshape(pclean_residual_im.pixels.data.shape) / (measurements.shape[0]//2)
+    pclean_residual_im.pixels.data = pclean_residual.reshape(pclean_residual_im.pixels.data.shape) / (
+                measurements.shape[0] // 2)
 
-
-    ut.plot_source_reco_diff(sky_im_restored, pclean_restored, title="PolyCLEAN Convolved", suptitle="Comparison", sc=sc)
+    ut.plot_source_reco_diff(sky_im_restored, pclean_restored, title="PolyCLEAN Convolved", suptitle="Comparison",
+                             sc=sc)
 
     # ut.compare_3_images(sky_im_restored, pclean_comp, pclean_restored, titles=["components", "convolution"], sc=sc)
 
     from ska_sdp_func_python.imaging import predict_visibility
+
     predicted_visi = predict_visibility(vt, sky_im, context="ng")
     dirty_rascil, _ = invert_visibility(predicted_visi, sky_im, context="ng", dopsf=False, normalise=True)
 
-    print("CLEAN beam (MSE/MAD):\n\tDirty image: {:.2e}/{:.2e}\n\tComponents convolved: {:.2e}/{:.2e}\n\tRaw components: {:.2e}/{:.2e}".format(
-        ut.MSE(dirty_rascil, sky_im_restored), ut.MAD(dirty_rascil, sky_im_restored),
-        ut.MSE(pclean_restored, sky_im_restored), ut.MAD(pclean_restored, sky_im_restored),
-        ut.MSE(sky_im, pclean_comp), ut.MAD(sky_im, pclean_comp)
+    print(
+        "CLEAN beam (MSE/MAD):\n\tDirty image: {:.2e}/{:.2e}\n\tComponents convolved: {:.2e}/{:.2e}\n\tRaw components: {:.2e}/{:.2e}".format(
+            ut.MSE(dirty_rascil, sky_im_restored), ut.MAD(dirty_rascil, sky_im_restored),
+            ut.MSE(pclean_restored, sky_im_restored), ut.MAD(pclean_restored, sky_im_restored),
+            ut.MSE(sky_im, pclean_comp), ut.MAD(sky_im, pclean_comp)
         )
     )
 
@@ -193,7 +198,7 @@ if __name__ == "__main__":
     print("Sharp beam (MSE/MAD):\n\tDirty image: {:.2e}/{:.2e}\n\tComponents convolved: {:.2e}/{:.2e}".format(
         ut.MSE(dirty_rascil, sky_im_sharp), ut.MAD(dirty_rascil, sky_im_sharp),
         ut.MSE(pclean_comp_sharp, sky_im_sharp), ut.MAD(pclean_comp_sharp, sky_im_sharp),
-        )
+    )
     )
 
     # print(np.allclose(dirty_image/dirty_image.max(), dirty_rascil.pixels.data.flatten()/dirty_image.max()))

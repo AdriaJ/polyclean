@@ -478,7 +478,7 @@ if __name__ == "__main__":
     convolved_res = restore_list(comps, None, residuals, sharp_beam)
     cropped_dirty, _ = invert_visibility(predicted_visi, image_model, context=context)
 
-    save = True
+    save = False
     if save:
         folder_path = "/home/jarret/PycharmProjects/polyclean/examples/figures/ext_sources/setup1"
         if not os.path.exists(folder_path):

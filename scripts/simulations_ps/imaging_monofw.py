@@ -30,12 +30,13 @@ matplotlib.use("Qt5Agg")
 
 
 seed = 64  # np.random.randint(0, 1000)  # np.random.randint(0, 1000)  # 492
-rmax = 300.  # 2000.
+rmax = 900.  # 2000.
 times = (np.arange(7)-3) * np.pi/9  # 7 angles from -pi/3 to pi/3
 fov_deg = 5
-npixel = 720  # 512  # 384 #  128 * 2
+npixel = 1920  # 512  # 384 #  128 * 2
 npoints = 200
 nufft_eps = 1e-3
+chunked = False
 psnrdb = 20
 
 lambda_factor = .01
@@ -95,11 +96,12 @@ if __name__ == "__main__":
     ### Simulation of the measurements
     forwardOp = pc.generatorVisOp(direction_cosines=direction_cosines,
                                   vlambda=flagged_uvwlambda,
-                                  nufft_eps=nufft_eps)
-    start = time.time()
-    fOp_lipschitz = forwardOp.lipschitz(tol=1., tight=True)
-    lipschitz_time = time.time() - start
-    print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)".format(lipschitz_time))
+                                  nufft_eps=nufft_eps,
+                                  chunked=chunked)
+    # start = time.time()
+    # fOp_lipschitz = forwardOp.lipschitz(tol=1., tight=True)
+    # lipschitz_time = time.time() - start
+    # print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)".format(lipschitz_time))
 
     noiseless_measurements = forwardOp(sky_im.pixels.data.reshape(-1))
     noise_scale = np.abs(noiseless_measurements).max() * 10 ** (-psnrdb / 20) / np.sqrt(2)
@@ -114,11 +116,16 @@ if __name__ == "__main__":
     stop = reco.stop_crit(tmax, min_iter, eps)
 
     # Solving
-    monofw = pyfwl.VFWLasso(measurements,
-                            forwardOp,
-                            lambda_,
-                            step_size="optimal",
-                            verbosity=100)
+    monofw = pc.MonoFW(
+        data=measurements,
+        uvwlambda=flagged_uvwlambda,
+        direction_cosines=direction_cosines,
+        lambda_=lambda_,
+        chunked=chunked,
+        nufft_eps=nufft_eps,
+        step_size="optimal",
+        verbosity=100
+    )
     print("Monoatomic FW: Solving ...")
     start = time.time()
     monofw.fit(stop_crit=stop)
