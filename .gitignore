@@ -129,5 +129,5 @@ dmypy.json
 .pyre/
 
 # Rascil
-src/rascil/
+src/rascil-main/
 .idea/
