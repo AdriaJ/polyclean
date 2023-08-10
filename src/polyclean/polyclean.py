@@ -22,46 +22,44 @@ from astropy.coordinates import SkyCoord
 
 __all__ = [
     "PolyCLEAN",
+    "MonoFW",
     "generatorVisOp",
     "diagnostics_polyclean"
 ]
 
 
-class PolyCLEAN(pyfwl.PFWLasso):
+class _RALassoHvoxImager:
+    """
+    This class should not be use outside the classes PolyCLEAN and MonoFW, in the context on radio interferometric
+    image reconstruction.
+    """
+
     def __init__(
             self,
-            # visibility_template: Visibility,
-            # image_model: Image,
+            data: pyct.NDArray,
             uvwlambda: pyct.NDArray,
             direction_cosines: pyct.NDArray,
-            data: pyct.NDArray,
             lambda_: float = None,
             lambda_factor: float = 0.1,
             nufft_eps: float = 1e-3,
-            flagged_bool_mask: pyct.NDArray = None,
-            ms_threshold: float = 0.7,  # multi spikes threshold at init
-            init_correction_prec: float = 0.2,
-            final_correction_prec: float = 1e-4,
-            remove_positions: bool = True,
-            min_correction_steps: int = 5,
-            max_correction_steps: int = 100,
-            minor_cycles: int = 0,
-            kernel: pyct.NDArray = np.ones((1, 1)),
-            kernel_center: pyct.NDArray = None,
             chunked=False,
-            *,
-            folder=None,  # : typ.Optional[pyct.PathLike] = None,
-            exist_ok: bool = False,
-            stop_rate: int = 1,
-            writeback_rate: typ.Optional[int] = None,
-            verbosity: int = 10,
-            show_progress: bool = True,
-            log_var: pyct.VarName = (
-                    "x",
-                    "dcv",
-            ),
+            flagged_bool_mask: pyct.NDArray = None,
             **kwargs,
     ):
+        """
+
+        Parameters
+        ----------
+        data
+        uvwlambda
+        direction_cosines
+        lambda_
+        lambda_factor
+        nufft_eps
+        chunked
+        flagged_bool_mask
+        kwargs
+        """
         if flagged_bool_mask is not None:
             # mask is 2D (times, baselines)
             self._uvw = uvwlambda[flagged_bool_mask].reshape(-1, 3)
@@ -71,36 +69,50 @@ class PolyCLEAN(pyfwl.PFWLasso):
         self._direction_cosines = direction_cosines
         self._nufft_eps = nufft_eps
         self._chunked = chunked
-        forwardOp = generatorVisOp(self._direction_cosines,
-                                   self._uvw,
-                                   self._nufft_eps,
-                                   chunked=chunked,
-                                   )
-
-        self._minor_cycles = minor_cycles + 1
-        if self._minor_cycles > 1:
-            self._dirty_image = forwardOp.adjoint(data)
-            self._kernel = kernel
-            if kernel_center is None:
-                kernel_center = np.array(self._kernel.shape) // 2
-            self._kernel_center = kernel_center
-            # self.convOp = pycop.Stencil(stencil_coefs=self._kernel,
-            #                             center=self._kernel_center,
-            #                             arg_shape=self._image_shape,
-            #                             boundary=0.).T
-            stop_rate = self._minor_cycles
-            verbosity = verbosity * stop_rate
-            start = time.time()
-            # self.convOp(np.zeros(self.convOp.shape[1]))
-            print("Compile time for stencils: {:.3f}".format(time.time() - start))
-
+        self.forwardOp = generatorVisOp(self._direction_cosines,
+                                        self._uvw,
+                                        self._nufft_eps,
+                                        chunked=chunked,
+                                        )
         if lambda_ is None:
-            lambda_ = lambda_factor * np.abs(forwardOp.adjoint(data)).max()
+            lambda_ = lambda_factor * np.abs(self.forwardOp.adjoint(data)).max()
+        self.lambda_ = lambda_
 
-        super().__init__(
-            data=data,
-            forwardOp=forwardOp,
-            lambda_=lambda_,
+    def rs_forwardOp(self, support_indices: pyct.NDArray) -> pyco.LinOp:
+        if support_indices.size == 0:
+            return pycop.NullOp(shape=(2 * self._uvw.shape[0], 0))  # complex valued visibilities => 2 measurements per baseline
+        else:
+            return generatorVisOp(self._direction_cosines[support_indices, :],
+                                  self._uvw,
+                                  self._nufft_eps,
+                                  chunked=self._chunked,
+                                  )
+
+
+class PolyCLEAN(_RALassoHvoxImager, pyfwl.PFWLasso):
+    def __init__(
+            self,
+            ms_threshold: float = 0.8,  # multi spikes threshold at init
+            init_correction_prec: float = 5e-2,
+            final_correction_prec: float = 1e-4,
+            remove_positions: bool = True,
+            min_correction_steps: int = 5,
+            max_correction_steps: int = 100,
+            *,
+            folder=None,  # : typ.Optional[pyct.PathLike] = None,
+            exist_ok: bool = False,
+            stop_rate: int = 1,
+            writeback_rate: typ.Optional[int] = None,
+            verbosity: int = 10,
+            show_progress: bool = True,
+            **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        super(_RALassoHvoxImager, self).__init__(
+            data=kwargs.get('data'),
+            forwardOp=self.forwardOp,
+            lambda_=self.lambda_,
             ms_threshold=ms_threshold,
             init_correction_prec=init_correction_prec,
             final_correction_prec=final_correction_prec,
@@ -113,8 +125,45 @@ class PolyCLEAN(pyfwl.PFWLasso):
             writeback_rate=writeback_rate,
             verbosity=verbosity,
             show_progress=show_progress,
-            log_var=log_var,
         )
+
+
+class MonoFW(_RALassoHvoxImager, pyfwl.VFWLasso):
+    def __init__(
+            self,
+            step_size: str = "optimal",
+            *,
+            folder=None,  # : typ.Optional[pyct.PathLike] = None,
+            exist_ok: bool = False,
+            stop_rate: int = 1,
+            writeback_rate: typ.Optional[int] = None,
+            verbosity: int = 10,
+            show_progress: bool = True,
+            **kwargs,
+    ):
+        super().__init__(**kwargs)
+        super(_RALassoHvoxImager, self).__init__(
+            data=kwargs.get('data'),
+            forwardOp=self.forwardOp,
+            lambda_=self.lambda_,
+            step_size=step_size,
+            folder=folder,
+            exist_ok=exist_ok,
+            stop_rate=stop_rate,
+            writeback_rate=writeback_rate,
+            verbosity=verbosity,
+            show_progress=show_progress,
+        )
+
+    # def rs_forwardOp(self, support_indices: pyct.NDArray) -> pyco.LinOp:
+    #     if support_indices.size == 0:
+    #         return pycop.NullOp(shape=(self.forwardOp.shape[0], 0))
+    #     else:
+    #         return generatorVisOp(self._direction_cosines[support_indices, :],
+    #                               self._uvw,
+    #                               self._nufft_eps,
+    #                               chunked=self._chunked,
+    #                               )
 
     # def df_grad(self) -> pyct.NDArray:
     #     if self._astate["idx"] % self._minor_cycles == 0:
@@ -124,20 +173,6 @@ class PolyCLEAN(pyfwl.PFWLasso):
     #                                    -1. * InnerProductRef(reference=self._dirty_image),
     #                                    init_lipschitz=False
     #                                    ).grad(self._mstate["x"])
-
-    def rs_forwardOp(self, support_indices: pyct.NDArray) -> pyco.LinOp:
-        if support_indices.size == 0:
-            return pycop.NullOp(shape=(self.forwardOp.shape[0], 0))
-        else:
-            return generatorVisOp(self._direction_cosines[support_indices, :],
-                                  self._uvw,
-                                  self._nufft_eps,
-                                  chunked=self._chunked,
-                                  )
-        # return generatorVisOp(self._direction_cosines[support_indices, :],
-        #                       self._uvw,
-        #                       self._nufft_eps,
-        #                       )
 
     # def rs_data_fid(self, support_indices: pyct.NDArray) -> pyco.DiffFunc:
     #     if self._astate["idx"] % self._minor_cycles == 0:
@@ -150,7 +185,6 @@ class PolyCLEAN(pyfwl.PFWLasso):
     #         return pycop.QuadraticFunc(ss * self.convOp * ss.T,
     #                                    -1. * InnerProductRef(reference=ss(self._dirty_image)),
     #                                    init_lipschitz=False)
-
 
 def generatorVisOp(direction_cosines: pyct.NDArray,
                    vlambda: pyct.NDArray,
@@ -191,6 +225,7 @@ def generatorVisOp(direction_cosines: pyct.NDArray,
     op = op * diag
     op._diff_lipschitz = 0.
     return op
+
 
 # class WtPolyCLEAN(pyfwl.PolyatomicFWforLasso):
 #     def __init__(
@@ -304,7 +339,7 @@ class InnerProductRef(pyco.LinFunc):
 def psf_kernel(direction_cosines, flagged_uvwlambda, npixel, intensity_rate=.1):
     forwardOp = generatorVisOp(direction_cosines=direction_cosines,
                                vlambda=flagged_uvwlambda,
-                               nufft_eps=1e-4,)
+                               nufft_eps=1e-4, )
     simulated_vis_psf = pycuc.view_as_real(np.ones(forwardOp.shape[0] // 2).astype(complex))
     full_psf = forwardOp.adjoint(simulated_vis_psf).reshape((npixel, npixel))
     index_center = np.array(np.unravel_index(np.argmax(full_psf), (npixel,) * 2))
@@ -358,7 +393,7 @@ def diagnostics_polyclean(pclean, log=False):
     if log:
         plt.yscale('log')
     plt.scatter(hist['duration'], (hist['Memorize[objective_func]'] - hist['Memorize[objective_func]'][-1]) / (
-                hist['Memorize[objective_func]'][0] - hist['Memorize[objective_func]'][-1]), label="PolyCLEAN", s=20,
+            hist['Memorize[objective_func]'][0] - hist['Memorize[objective_func]'][-1]), label="PolyCLEAN", s=20,
                 marker="+")
     plt.title('Reconstruction: LASSO objective function')
     plt.legend()
