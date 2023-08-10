@@ -35,7 +35,7 @@ import polyclean.image_utils as ut
 import polyclean.reconstructions as reco
 from polyclean.clean_utils import mjCLEAN
 
-seed = 0
+seed = None
 
 fov_deg = 5
 times = (np.arange(7) - 3) * np.pi / 9
@@ -45,11 +45,12 @@ phasecentre = SkyCoord(ra=+15.0 * u.deg, dec=-45.0 * u.deg, frame="icrs", equino
 npoints = 200
 psnrdb = 20
 
-rmax = [3000]  # 600, 900]  # 1200, ]  # 3000, 5000] 1500 3000
+rmax = [300]  # 600, 900]  # 1200, ]  # 3000, 5000] 1500 3000
 
 lasso_params = {
     'lambda_factor': 0.01,
     'nufft_eps': 1e-3,
+    'chunked': False,
     'eps': 1e-4,
     'tmax': 600,
     'min_iter': 5,
@@ -62,10 +63,12 @@ clean_params = {
     'algorithm': 'hogbom',
 }
 pclean_params = {
+    'ms_threshold': .8,
     'init_correction_prec': 5e-2,
     'final_correction_prec': 1e-4,
     'remove': True,
     'min_correction_steps': 3,
+    'max_correction_steps': 1000,
     'show_progress': False,
 }
 monofw_params = {
@@ -278,7 +281,7 @@ if __name__ == "__main__":
         forwardOp = pc.generatorVisOp(direction_cosines=direction_cosines,
                                       vlambda=flagged_uvwlambda,
                                       nufft_eps=lasso_params['nufft_eps'],
-                                      chunked=True)  # todo: when do I need to chunk ? At worst it only gives a bad lipschitz cmputation time
+                                      chunked=lasso_params['chunked'])  # todo: when do I need to chunk ? At worst it only gives a bad lipschitz cmputation time
         start = time.time()
         fOp_lipschitz = forwardOp.lipschitz(tol=1., tight=True)
         lips_durations.append(lips_time := time.time() - start)
@@ -291,7 +294,7 @@ if __name__ == "__main__":
         # forwardOp = pc.generatorVisOp(direction_cosines=direction_cosines,
         #                               vlambda=flagged_uvwlambda,
         #                               nufft_eps=lasso_params['nufft_eps'],
-        #                               chunked=True)  # todo: when do I need to chunk ? At worst it only gives a bad lipschitz cmputation time
+        #                               chunked=True)
         # start = time.time()
         # fOp_lipschitz = forwardOp.lipschitz(tol=1., tight=True)
         # lips_durations.append(lips_time := time.time() - start)
@@ -324,10 +327,12 @@ if __name__ == "__main__":
             "precision_rule": lambda k: 10 ** (-k / 10),
         }
         pclean = pc.PolyCLEAN(
-            flagged_uvwlambda,
-            direction_cosines,
-            measurements,
+            data=measurements,
+            uvwlambda=flagged_uvwlambda,
+            direction_cosines=direction_cosines,
             lambda_=lambda_,
+            chunked=lasso_params['chunked'],
+            nufft_eps=lasso_params['nufft_eps'],
             **pclean_params
         )
         print("PolyCLEAN: Solving...")
@@ -378,10 +383,15 @@ if __name__ == "__main__":
         objective_func['APGD'].append(apgd.objective_func())
 
         # Monoatomic FW
-        monofw = pyfwl.VFWLasso(measurements,
-                                forwardOp,
-                                lambda_,
-                                **monofw_params)
+        monofw = pc.MonoFW(
+            data=measurements,
+            uvwlambda=flagged_uvwlambda,
+            direction_cosines=direction_cosines,
+            lambda_=lambda_,
+            chunked=lasso_params['chunked'],
+            nufft_eps=lasso_params['nufft_eps'],
+            **monofw_params
+        )
         print("Monoatomic FW: Solving ...")
         start = time.time()
         monofw.fit(stop_crit=reco.stop_crit(40 * dt_pclean, lasso_params['min_iter'], lasso_params['eps'],
