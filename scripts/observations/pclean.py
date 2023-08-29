@@ -5,7 +5,7 @@ import os
 
 import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.colors as colors
+import matplotlib.colors as mplc
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 import numpy as np
@@ -19,19 +19,12 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.wcs.utils import skycoord_to_pixel
 
-from ska_sdp_func_python.imaging import (
-    invert_visibility,
-    create_image_from_visibility,
-)
-from ska_sdp_func_python.image import (
-    restore_cube,
-    fit_psf,
-)
+from ska_sdp_func_python.imaging import invert_visibility, create_image_from_visibility
+from ska_sdp_func_python.image import restore_cube, fit_psf
 from ska_sdp_func_python.util import skycoord_to_lmn
 from ska_sdp_datamodels.science_data_model.polarisation_model import PolarisationFrame
 from ska_sdp_datamodels.visibility.vis_utils import generate_baselines
 from ska_sdp_datamodels.sky_model import SkyComponent
-
 
 matplotlib.use("Qt5Agg")
 
@@ -58,6 +51,69 @@ log_diagnostics = False
 
 save = True
 
+
+def truncate_colormap(cmap, minval, maxval, n=100):
+    if isinstance(cmap, str):
+        cmap = plt.get_cmap(cmap)
+    new_cmap = mplc.LinearSegmentedColormap.from_list(
+        'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
+        cmap(np.linspace(minval, maxval, n)))
+    return new_cmap
+
+
+def plot_1_image(image, title="", cmaps=['hot', 'Greys'], alpha=1., offset_cm=0., symm=True):
+    arr = image.pixels.data[0, 0]
+
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.subplots(1, 1, subplot_kw={'projection': image.image_acc.wcs.sub([1, 2]), 'frameon': False})
+    ax.set_xlabel(image.image_acc.wcs.wcs.ctype[0])
+    ax.set_ylabel(image.image_acc.wcs.wcs.ctype[1])
+    vlim = -arr.min() if symm else 0.
+    mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
+    mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
+    cmapc = truncate_colormap(cmaps[0], offset_cm, 1.)
+    aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapc, interpolation='none', alpha=alpha,
+                      norm=mplc.PowerNorm(gamma=0.5, vmin=vlim, vmax=1. * mask_comp.max()))
+    cmapr = truncate_colormap(cmaps[1], 0., 1 - offset_cm)
+    aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha,
+                      cmap=cmapr, norm='linear', vmin=mask_res.min(), vmax=vlim)
+    # norm=symm_sqrt_norm(-vlim, vlim))
+    axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
+    cbc = fig.colorbar(aximc, cax=axinsc,
+                       orientation="vertical", ticks=[round(vlim) + 1, 500, 1000, 2000, 3000, 4000])
+    axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
+    cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
+    fig.suptitle(title)
+    plt.subplots_adjust(top=0.92, bottom=0.08, left=0.0, right=0.93, hspace=0.15, wspace=0.15)
+    fig.show()
+
+
+def plot_certificate(certificate_image, title="Dual certificate", alpha=0.95, offset_cm=.2):
+    arr = certificate_image.pixels.data[0, 0]
+
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.subplots(1, 1, subplot_kw={'projection': image_model.image_acc.wcs.sub([1, 2]), 'frameon': False})
+    ax.set_xlabel(image_model.image_acc.wcs.wcs.ctype[0])
+    ax.set_ylabel(image_model.image_acc.wcs.wcs.ctype[1])
+    vlim = 0.
+    mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
+    mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
+    cmapc = truncate_colormap(cmaps[0], 0., 1 - offset_cm)
+    aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapc, interpolation='none', alpha=alpha,
+                      norm='linear', vmax=1.)
+    cmapr = cmaps[1]  # truncate_colormap(cmaps[1], 0., 1)
+    aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha, cmap=cmapr,
+                      norm='linear', vmin=arr.min(), vmax=vlim, )
+    ax.contour(arr, levels=[.9], colors="b")
+    axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
+    cbc = fig.colorbar(aximc, cax=axinsc, orientation="vertical", extend='max')
+    cbc.ax.hlines(0.9, 0, 1, color='b')
+    axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
+    cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
+    fig.suptitle(title)
+    fig.show()
+
+
 def plot_2_images(
         im_list,
         title_list,
@@ -77,7 +133,7 @@ def plot_2_images(
                         subplot_kw={'projection': im_list[0].image_acc.wcs.sub([1, 2]),
                                     'frameon': False})
     if norm == 'sqrt':
-        n = colors.PowerNorm(gamma=0.5, vmin=vmin, vmax=vmax)
+        n = mplc.PowerNorm(gamma=0.5, vmin=vmin, vmax=vmax)
     for i, ax in enumerate(axes.flat):
         # ax = axes[i]
         arr = np.real(im_list[i]["pixels"].data[chan, pol, :, :])
@@ -88,7 +144,7 @@ def plot_2_images(
                 aximn = ax.imshow(-im_neg, origin="lower", cmap=cmn, interpolation='none', alpha=0.8, norm=n)
             else:
                 aximn = ax.imshow(-im_neg, origin="lower", cmap=cmn, interpolation='none', alpha=0.8, norm=norm,
-                              vmin=vmin, vmax=vmax)
+                                  vmin=vmin, vmax=vmax)
         if norm == 'sqrt':
             aximp = ax.imshow(im_pos, origin="lower", cmap=cm, interpolation='none', norm=n)
         else:
@@ -116,7 +172,6 @@ def plot_2_images(
     fig.suptitle(suptitle)
     plt.subplots_adjust(top=0.88, bottom=0.11, left=0.06, right=0.9, hspace=0.17, wspace=0.05)
     plt.show()
-
 
 
 if __name__ == "__main__":
@@ -169,7 +224,7 @@ if __name__ == "__main__":
     print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)\n".format(dt_lipschitz))
 
     vis_array = pycuc.view_as_real(vis.vis.data.reshape(-1)[flags_bool])
-    sum_vis = vis_array.shape[0]//2
+    sum_vis = vis_array.shape[0] // 2
     dirty_array = forwardOp.adjoint(vis_array)  # 28s in chunked mode
     lambda_ = lambda_factor * np.abs(dirty_array).max()
 
@@ -193,9 +248,9 @@ if __name__ == "__main__":
 
     # Computations
     pclean = pc.PolyCLEAN(
-        flagged_uvwlambda,
-        direction_cosines,
-        vis_array,
+        data=vis_array,
+        uvwlambda=flagged_uvwlambda,
+        direction_cosines=direction_cosines,
         lambda_=lambda_,
         **pclean_parameters,
     )
@@ -212,7 +267,6 @@ if __name__ == "__main__":
     print("Iterations: {}".format(int(hist['N_iter'][-1])))
     print("Final sparsity of the components: {}".format(np.count_nonzero(data["x"])))
 
-
     psf, _ = invert_visibility(vis, image_model, context=context, dopsf=True)
     clean_beam = fit_psf(psf)
 
@@ -224,30 +278,21 @@ if __name__ == "__main__":
     pclean_residual_im.pixels.data = pclean_residual.reshape(pclean_residual_im.pixels.data.shape) / sum_vis
     pclean_restored = restore_cube(pclean_comp, None, pclean_residual_im, clean_beam=clean_beam)
 
+    dirty_image = image_model.copy(deep=True)
+    dirty_image.pixels.data = dirty_array.reshape(dirty_image.pixels.data.shape) / sum_vis
+
     ## Plot and save the results
 
-    folder_path = "/home/jarret/PycharmProjects/polyclean/examples/figures/lofar_ps/polyclean/" + str(lambda_factor)
+    folder_path = "/home/jarret/PycharmProjects/polyclean/figures/lofar_ps/polyclean/" + str(lambda_factor)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
 
-    plot_2_images([pclean_comp_restored, pclean_restored],
-                  ["Components convolved", "Components + residual"],
-                  suptitle="PolyCLEAN {:.3f} - {:.2f}s".format(lambda_factor, dt_pclean),
-                  sc=None, vmin=1., norm='log', cmn="CMRmap_r")
+    plot_1_image(dirty_image, "Dirty image", alpha=0.95)
     if save:
-        plt.savefig(folder_path + "/log.png")
-    plot_2_images([pclean_comp_restored, pclean_restored],
-                  ["Components convolved", "Components + residual"],
-                  suptitle="PolyCLEAN {:.3f} - {:.2f}s".format(lambda_factor, dt_pclean),
-                  sc=None, vmin=1., norm='sqrt', cmn="CMRmap_r")
+        plt.savefig(folder_path + "/dirty.png")
+    plot_1_image(pclean_restored, "PolyCLEAN {:.3f} - {:.2f}s".format(lambda_factor, dt_pclean), alpha=0.95)
     if save:
-        plt.savefig(folder_path + "/sqrt.png")
-    plot_2_images([pclean_comp_restored, pclean_restored],
-                  ["Components convolved", "Components + residual"],
-                  suptitle="PolyCLEAN {:.3f} - {:.2f}s".format(lambda_factor, dt_pclean),
-                  sc=None, vmin=1., norm='linear', cmn="CMRmap_r")
-    if save:
-        plt.savefig(folder_path + "/linear.png")
+        plt.savefig(folder_path + "/restored.png")
 
     pclean_comp_restored.image_acc.export_to_fits(folder_path + "/components.fits")
     pclean_restored.image_acc.export_to_fits(folder_path + "/restored.fits")
@@ -260,29 +305,12 @@ if __name__ == "__main__":
 
         pclean_comp_sharp = restore_cube(pclean_comp, None, None, clean_beam=sharp_beam)
         pclean_sharp = restore_cube(pclean_comp, None, pclean_residual_im, clean_beam=sharp_beam)
-        folder_path += "/sharp_beam"
-        os.makedirs(folder_path, exist_ok=True)
-        plot_2_images([pclean_comp_sharp, pclean_sharp],
-                      ["Components convolved", "Components + residual"],
-                      suptitle="PolyCLEAN {:.3f} - {:.2f}s".format(lambda_factor, dt_pclean),
-                      sc=None, vmin=1., norm='log')
+        plot_1_image(pclean_sharp, "PolyCLEAN {:.3f} - {:.2f}s".format(lambda_factor, dt_pclean), alpha=0.95)
         if save:
-            plt.savefig(folder_path + "/log.png")
-        plot_2_images([pclean_comp_sharp, pclean_sharp],
-                      ["Components convolved", "Components + residual"],
-                      suptitle="PolyCLEAN {:.3f} - {:.2f}s".format(lambda_factor, dt_pclean),
-                      sc=None, vmin=1., norm='sqrt')
-        if save:
-            plt.savefig(folder_path + "/sqrt.png")
-        plot_2_images([pclean_comp_sharp, pclean_sharp],
-                      ["Components convolved", "Components + residual"],
-                      suptitle="PolyCLEAN {:.3f} - {:.2f}s".format(lambda_factor, dt_pclean),
-                      sc=None, vmin=1., norm='linear')
-        if save:
-            plt.savefig(folder_path + "/linear.png")
+            plt.savefig(folder_path + "/restored_sharp.png")
 
-        pclean_comp_sharp.image_acc.export_to_fits(folder_path + "/components.fits")
-        pclean_sharp.image_acc.export_to_fits(folder_path + "/restored.fits")
+        pclean_comp_sharp.image_acc.export_to_fits(folder_path + "/components_sharp.fits")
+        pclean_sharp.image_acc.export_to_fits(folder_path + "/restored_sharp.fits")
 
     ## Dual certificate
 
@@ -320,17 +348,99 @@ if __name__ == "__main__":
     ax.set_ylabel(image_model.image_acc.wcs.wcs.ctype[1])
     ax.set_xlabel(image_model.image_acc.wcs.wcs.ctype[0])
     ax.contour(dual_certif_arr, levels=[.9], colors="c")
-    fig.suptitle("Dual certificate image - maximum value: {:.3f}".format(data["dcv"]))
-    for component in sc:
-        x, y = skycoord_to_pixel(component.direction, dual_certificate_im.image_acc.wcs, 0, "wcs")
-        ax.scatter(x, y, marker="+", color="red", s=30, alpha=.9)
+    fig.suptitle("Dual certificate image - maximum value: {:.3f}".format(dual_certif_arr.max()))
+    # for component in sc:
+    #     x, y = skycoord_to_pixel(component.direction, dual_certificate_im.image_acc.wcs, 0, "wcs")
+    #     ax.scatter(x, y, marker="+", color="red", s=30, alpha=.9)
     axins = inset_axes(ax, width="4%", height="100%", loc='center right', borderpad=-5)
     cb = fig.colorbar(ims, cax=axins, orientation="vertical")
     cb.ax.hlines(0.9, 0, 1, color='c')
     plt.show()
 
-    folder_path = "/home/jarret/PycharmProjects/polyclean/examples/figures/lofar_ps/dual_certificate/" + str(lambda_factor)
+    folder_path = "/home/jarret/PycharmProjects/polyclean/figures/lofar_ps/dual_certificate/" + str(lambda_factor)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
     if save:
         plt.savefig(folder_path + "/certif_0.9.pdf")
+
+    comp_im = pclean_comp_restored.pixels.data[0, 0]
+    res_im = pclean_residual_im.pixels.data[0, 0]
+
+    def symm_sqrt_norm(vmin, vmax):  # norm=symm_sqrt_norm(arr.min(), vlim)
+        def _forward(x):
+            return np.sqrt(np.abs(x)) * np.sign(x)
+
+        def _inverse(x):
+            return np.sign(x) * x ** 2
+
+        return mplc.FuncNorm((_forward, _inverse), vmin=vmin, vmax=vmax)
+
+
+    arr = dual_certificate_im.pixels.data[0, 0]
+    folder_path = "/home/jarret/PycharmProjects/polyclean/figures/lofar_ps/dual_certificate/" + str(lambda_factor)
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+
+    cmaps = ['hot', 'Greys']
+
+    ## option 1
+    alpha = 0.95
+    offset_cm = 0.0
+
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.subplots(1, 1, subplot_kw={'projection': image_model.image_acc.wcs.sub([1, 2]), 'frameon': False})
+    ax.set_xlabel(image_model.image_acc.wcs.wcs.ctype[0])
+    ax.set_ylabel(image_model.image_acc.wcs.wcs.ctype[1])
+    vlim = 0.8
+    mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
+    mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
+    cmapc = truncate_colormap(cmaps[0], offset_cm, 1.)
+    aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapc, interpolation='none', alpha=alpha,
+                      norm='linear', vmax=1.)
+    # norm=mplc.PowerNorm(gamma=0.5, vmin=vlim, vmax=1. * mask_comp.max()))
+    cmapr = truncate_colormap(cmaps[1], 0., 1 - offset_cm)
+    aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha, cmap=cmapr,
+                      norm='linear', vmin=arr.min(), vmax=vlim, )
+    # norm=symm_sqrt_norm(arr.min(), vlim),)
+    axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
+    cbc = fig.colorbar(aximc, cax=axinsc,
+                       orientation="vertical", extend='max')  # ticks=[50, 1000, 2000, 3000, 4000])
+    axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
+    cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
+    # ax.contour(arr, levels=[.9], colors="b")
+    # cbc.ax.hlines(0.9, 0, 1, color='b')
+    fig.suptitle("Dual certificate image - maximum value: {:.3f}".format(arr.max()))
+    fig.show()
+    if save:
+        plt.savefig(folder_path + "/certif_0.9_option1.png")
+
+    ## option 2
+    alpha = 0.95
+    offset_cm = 0.0
+
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.subplots(1, 1, subplot_kw={'projection': image_model.image_acc.wcs.sub([1, 2]), 'frameon': False})
+    ax.set_xlabel(image_model.image_acc.wcs.wcs.ctype[0])
+    ax.set_ylabel(image_model.image_acc.wcs.wcs.ctype[1])
+    vlim = 0.
+    mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
+    mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
+    cmapc = truncate_colormap(cmaps[0], offset_cm, 1.)
+    aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapc, interpolation='none', alpha=alpha,
+                      norm='linear', vmax=1.)
+    # norm=mplc.PowerNorm(gamma=0.5, vmin=vlim, vmax=1. * mask_comp.max()))
+    cmapr = truncate_colormap(cmaps[1], 0., 1 - offset_cm)
+    aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha, cmap=cmapr,
+                      norm='linear', vmin=arr.min(), vmax=vlim, )
+    # norm=symm_sqrt_norm(arr.min(), vlim),)
+    axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
+    cbc = fig.colorbar(aximc, cax=axinsc,
+                       orientation="vertical", extend='max') # ticks=[50, 1000, 2000, 3000, 4000])
+    ax.contour(arr, levels=[.9], colors="b")
+    cbc.ax.hlines(0.9, 0, 1, color='b')
+    axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
+    cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
+    fig.suptitle("Dual certificate image - maximum value: {:.3f}".format(arr.max()))
+    fig.show()
+    if save:
+        plt.savefig(folder_path + "/certif_0.9_option2.png")

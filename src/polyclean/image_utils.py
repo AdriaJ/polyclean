@@ -20,6 +20,7 @@ __all__ = [
     "generate_point_sources",
     "display_image_list",
     "MSE",
+    "MAD"
 ]
 
 DEFAULT_PHASECENTER = SkyCoord(

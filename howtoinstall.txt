@@ -7,15 +7,18 @@ conda create --name pclean --strict-channel-priority --channel=conda-forge --fil
 conda activate pclean
 
 pip install -e .
-pytest
+
+cd src/
 
 # Rascil
 git clone https://gitlab.com/ska-telescope/external/rascil-main.git
 cd rascil-main
 make install_requirements
-pip3 install git-lfs
+pip install git-lfs
 git lfs install
 git-lfs pull
+
+pytest
 
 echo src/rascil/ >> ~/PycharmProjects/polyclean/.gitignore
 

@@ -1,13 +1,14 @@
 import numpy as np
 import typing as typ
-import time
+import datetime as dt
 
 import pyfwl
-
+import pycsou.abc.solver as pycas
 import pycsou.util.ptype as pyct
 import pycsou.abc.operator as pyco
 import pycsou.operator as pycop
 import pycsou.util.complex as pycuc
+import pycsou.opt.stop as pycos
 
 import polyclean.image_utils as ut
 
@@ -24,7 +25,8 @@ __all__ = [
     "PolyCLEAN",
     "MonoFW",
     "generatorVisOp",
-    "diagnostics_polyclean"
+    "diagnostics_polyclean",
+    "stop_crit"
 ]
 
 
@@ -80,7 +82,8 @@ class _RALassoHvoxImager:
 
     def rs_forwardOp(self, support_indices: pyct.NDArray) -> pyco.LinOp:
         if support_indices.size == 0:
-            return pycop.NullOp(shape=(2 * self._uvw.shape[0], 0))  # complex valued visibilities => 2 measurements per baseline
+            return pycop.NullOp(
+                shape=(2 * self._uvw.shape[0], 0))  # complex valued visibilities => 2 measurements per baseline
         else:
             return generatorVisOp(self._direction_cosines[support_indices, :],
                                   self._uvw,
@@ -186,6 +189,7 @@ class MonoFW(_RALassoHvoxImager, pyfwl.VFWLasso):
     #                                    -1. * InnerProductRef(reference=ss(self._dirty_image)),
     #                                    init_lipschitz=False)
 
+
 def generatorVisOp(direction_cosines: pyct.NDArray,
                    vlambda: pyct.NDArray,
                    nufft_eps: float = 1e-3,
@@ -225,6 +229,26 @@ def generatorVisOp(direction_cosines: pyct.NDArray,
     op = op * diag
     op._diff_lipschitz = 0.
     return op
+
+
+def stop_crit(tmax: float,
+              min_iter: int,
+              eps: float,
+              value: float = None,
+              ) -> pycas.StoppingCriterion:
+    duration_stop = pycos.MaxDuration(t=dt.timedelta(seconds=tmax))
+    min_iter_stop = pycos.MaxIter(n=min_iter)
+    if value is None:
+        stop_crit = pycos.RelError(
+            eps=eps,
+            var="objective_func",
+            f=None,
+            norm=2,
+            satisfy_all=True,
+        )
+    else:
+        stop_crit = pycos.AbsError(eps=value, var="objective_func")
+    return (stop_crit & min_iter_stop) | duration_stop
 
 
 # class WtPolyCLEAN(pyfwl.PolyatomicFWforLasso):

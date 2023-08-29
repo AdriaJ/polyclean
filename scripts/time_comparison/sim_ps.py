@@ -38,14 +38,15 @@ from polyclean.clean_utils import mjCLEAN
 seed = None
 
 fov_deg = 5
-times = (np.arange(7) - 3) * np.pi / 9
+ntimes = 7
+times = (2/(ntimes-1) * np.arange(ntimes) - 1) * np.pi/3
 frequency = np.array([1e8])
 channel_bandwidth = np.array([1e6])
 phasecentre = SkyCoord(ra=+15.0 * u.deg, dec=-45.0 * u.deg, frame="icrs", equinox="J2000")
 npoints = 200
 psnrdb = 20
 
-rmax = [300]  # 600, 900]  # 1200, ]  # 3000, 5000] 1500 3000
+rmax = [1500, 2000]  # 600, 900]  # 1200, ]  # 3000, 5000] 1500 3000
 
 lasso_params = {
     'lambda_factor': 0.01,

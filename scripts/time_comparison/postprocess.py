@@ -13,8 +13,8 @@ from matplotlib import use
 use("Qt5Agg")
 
 folder = "/home/jarret/PycharmProjects/polyclean/scripts/time_comparison/"
-filename1 = "res300_600_900.pkl"
-filenames = ["res1200_1500.pkl", "res2000.pkl"]
+filename1 = "res300_600_900_1200.pkl"
+filenames = ["res1500_2000.pkl", ]
 
 if __name__ == "__main__":
     with open(folder + filename1, 'rb') as file:
@@ -66,19 +66,24 @@ if __name__ == "__main__":
     mse["WS-CLEAN"] = [ut.MSE(s, c) for s, c in zip(restored_sources, ws_restored)]
     mad["WS-CLEAN"] = [ut.MAD(s, c) for s, c in zip(restored_sources, ws_restored)]
 
+    print(mse.to_latex(caption='MSE'))
+    print(mad.to_latex(caption='MAD'))
+
     # Dual certificate
     dcvs.pop('CLEAN')
     dcv = pd.DataFrame.from_dict(dcvs)
     dcv.index = rmax
+    print(dcv.to_latex(caption="Dual certificate value"))
 
     # Obejctive function
     objective_func.pop('CLEAN')
     obj = pd.DataFrame.from_dict({k: [arr[0] for arr in objective_func[k]] for k in objective_func.keys()})
     obj.index = rmax
+    print(obj.to_latex(caption="Objective function value"))
 
     # Summary
     summ = pd.DataFrame.from_dict({"rmax": rmax, "N pixels": npixels, "Lipschitz time": lips_durations},)
-    # print(summ.to_latex(index=False, caption="Summary"))
+    print(summ.to_latex(index=False, caption="Summary"))
 
     # Total duration
     total_lips = sum(lips_durations)
