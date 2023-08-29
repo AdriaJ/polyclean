@@ -1,0 +1,35 @@
+ra_config:
+    ntimes: 7
+    frequency: 1.e+8
+    channel_bandwidth: 1.e+6
+    fov_deg: 5.
+    nsources: 200
+    psnr_db: 20
+lasso_params:
+    lambda_factor: 0.01
+    nufft_eps: 1.e-3
+    chunked: False
+    eps: 1.e-4
+    tmax: 600
+    min_iter: 5
+pclean_params:
+    ms_threshold: .8
+    init_correction_prec: 5.e-2
+    final_correction_prec: 1.e-4
+    remove: True
+    min_correction_steps: 3
+    max_correction_steps: 1000
+    show_progress: False
+monofw_params:
+    step_size: 'optimal'
+    show_progress: False
+    max_time_factor: 10
+clean_params:
+#    n_minor: 10_000
+#    n_major: 5
+#    gain: 0.1
+    context: 'ng'
+#    algorithm: hogbom
+dict_keys:
+    methods: ['wsclean', 'pclean', 'monofw', 'apgd']
+    metrics: ['time', 'mse', 'mad', 'objf', 'dcv']
