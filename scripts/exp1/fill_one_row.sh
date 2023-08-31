@@ -64,6 +64,12 @@ end_time="$(date -u +%s.%N)"
 elapsed="$(bc <<<"$end_time-$start_time")"
 echo "Total of $elapsed seconds elapsed for wsclean"
 echo $elapsed > tmpdir/wsclean_time.txt
+if [ $save = "true" ]; then
+    echo "Saving..."
+    save_dir="reconstructions/rmax_$rmax"
+    mkdir -p $save_dir
+    cp ws-image.fits $save_dir
+fi
 mv ws-* tmpdir
 python pp_wsclean.py
 python fill_df.py

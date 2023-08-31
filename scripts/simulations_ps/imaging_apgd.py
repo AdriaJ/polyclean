@@ -12,8 +12,8 @@ from ska_sdp_datamodels.science_data_model.polarisation_model import Polarisatio
 from ska_sdp_func_python.imaging.imaging import invert_visibility
 from ska_sdp_func_python.image.deconvolution import restore_cube, fit_psf
 
-import pycsou.operator as pycop
-import pycsou.opt.solver as pycsol
+import pyxu.operator as pxop
+import pyxu.opt.solver as pxsol
 
 import pyfwl
 
@@ -117,9 +117,9 @@ if __name__ == "__main__":
     }
 
     # Solving
-    data_fid_synth = 0.5 * pycop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
+    data_fid_synth = 0.5 * pxop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
     regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, None))
-    apgd = pycsol.PGD(data_fid_synth, regul_synth, show_progress=False)
+    apgd = pxsol.PGD(data_fid_synth, regul_synth, show_progress=False)
     print("APGD: Solving ...")
     start = time.time()
     apgd.fit(**fit_parameters)

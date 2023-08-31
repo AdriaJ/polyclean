@@ -15,7 +15,7 @@ from ska_sdp_func_python.imaging import (
 import polyclean.image_utils as ut
 import polyclean.polyclean as pc
 
-import pycsou.util.complex as pycuc
+import pyxu.util.complex as pxc
 
 
 seed = None  # np.random.randint(0, 1000)  # np.random.randint(0, 1000)  # 492
@@ -88,7 +88,7 @@ def test_forward():
     Test consistency with RASCIL
     """
     measurements = forwardOp.apply(sky_im.pixels.data.flatten())
-    meas = pycuc.view_as_complex(measurements)
+    meas = pxc.view_as_complex(measurements)
     predicted_visi = predict_visibility(vt, sky_im, context=context)
     pred_visi_flat = predicted_visi.vis.data.flatten()[flags_bool]
 

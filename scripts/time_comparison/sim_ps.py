@@ -23,10 +23,10 @@ from ska_sdp_func_python.imaging import (
     advise_wide_field
 )
 
-import pycsou.operator.linop as pycl
-import pycsou.util.complex as pycuc
-import pycsou.operator as pycop
-import pycsou.opt.solver as pycsol
+import pyxu.operator.linop as pxl
+import pyxu.util.complex as pxc
+import pyxu.operator as pxop
+import pyxu.opt.solver as pxsol
 
 import pyfwl
 
@@ -125,7 +125,7 @@ def get_nmodes(vt, epsilon, phasecentre=None, fov=None, direction_cosines=None, 
             skycoord_to_lmn(urc, phasecentre),
             skycoord_to_lmn(phasecentre, phasecentre),
         )
-        nufft = pycl.NUFFT.type3(
+        nufft = pxl.NUFFT.type3(
             x=np.array(lmn),
             z=2 * np.pi * vt.visibility_acc.uvw_lambda.reshape(-1, 3),
             real=True,
@@ -138,7 +138,7 @@ def get_nmodes(vt, epsilon, phasecentre=None, fov=None, direction_cosines=None, 
         return nufft._fft_shape(), None, None
 
     elif (fov is None) and (direction_cosines is not None):
-        nufft = pycl.NUFFT.type3(
+        nufft = pxl.NUFFT.type3(
             x=direction_cosines,
             z=2 * np.pi * vt.visibility_acc.uvw_lambda.reshape(-1, 3),
             real=True,
@@ -225,10 +225,10 @@ if __name__ == "__main__":
 
         # CLEAN
         predicted_visi = predict_visibility(vt, sky_im, context=clean_params['context'])
-        real_visi = pycuc.view_as_real(predicted_visi.vis.data[:, :, 0, 0] * predicted_visi.weight.data[:, :, 0, 0])
+        real_visi = pxc.view_as_real(predicted_visi.vis.data[:, :, 0, 0] * predicted_visi.weight.data[:, :, 0, 0])
         noise_scale = np.abs(real_visi).max() * 10 ** (-psnrdb / 20) / np.sqrt(2)
         noise = np.random.normal(0, noise_scale, real_visi.shape)
-        predicted_visi.vis.data += pycuc.view_as_complex(noise)[:, :, None, None]
+        predicted_visi.vis.data += pxc.view_as_complex(noise)[:, :, None, None]
         clean_model = create_image_from_visibility(predicted_visi, cellsize=cellsize_nufft, npixel=2 * npix)
         dirty, _ = invert_visibility(predicted_visi, clean_model, context=clean_params['context'])
         psf, _ = invert_visibility(predicted_visi, image_model, context=clean_params['context'], dopsf=True)
@@ -305,7 +305,7 @@ if __name__ == "__main__":
         noiseless_measurements = forwardOp(sky_im.pixels.data.reshape(-1))
         # noise_scale = np.abs(noiseless_measurements).max() * 10 ** (-psnrdb / 20) / np.sqrt(2)
         # noise = np.random.normal(0, noise_scale, noiseless_measurements.shape)
-        noise_pclean = pycuc.view_as_real(pycuc.view_as_complex(noise).flatten()[flags_bool])
+        noise_pclean = pxc.view_as_real(pxc.view_as_complex(noise).flatten()[flags_bool])
         measurements = noiseless_measurements + noise_pclean
 
         dirty_image = forwardOp.adjoint(measurements)
@@ -316,8 +316,8 @@ if __name__ == "__main__":
         # cropped_dirty['pixels'].data[0, 0, ...] = \
         #     dirty['pixels'].data[0, 0, npix // 2: npix + npix // 2, npix // 2: npix + npix // 2]
         # np.linalg.norm(cropped_dirty.pixels.data.flatten() - dirty_image / (measurements.shape[0] // 2)) / np.linalg.norm(cropped_dirty.pixels.data.flatten())
-        # np.linalg.norm(pycuc.view_as_complex(real_visi).flatten()[flags_bool] - pycuc.view_as_complex(noiseless_measurements)) / np.linalg.norm(pycuc.view_as_complex(real_visi).flatten()[flags_bool])
-        # np.linalg.norm(predicted_visi.vis.data.flatten()[flags_bool] - pycuc.view_as_complex(measurements)) / np.linalg.norm(measurements)
+        # np.linalg.norm(pxc.view_as_complex(real_visi).flatten()[flags_bool] - pxc.view_as_complex(noiseless_measurements)) / np.linalg.norm(pxc.view_as_complex(real_visi).flatten()[flags_bool])
+        # np.linalg.norm(predicted_visi.vis.data.flatten()[flags_bool] - pxc.view_as_complex(measurements)) / np.linalg.norm(measurements)
 
 
         # PolyCLEAN
@@ -362,9 +362,9 @@ if __name__ == "__main__":
             "tau": 1 / (fOp_lipschitz ** 2)
         }
         fit_params_apgd.update(apgd_params)
-        data_fid_synth = 0.5 * pycop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
+        data_fid_synth = 0.5 * pxop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
         regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, None))
-        apgd = pycsol.PGD(data_fid_synth, regul_synth, show_progress=False)
+        apgd = pxsol.PGD(data_fid_synth, regul_synth, show_progress=False)
         print("APGD: Solving ...")
         start = time.time()
         apgd.fit(**fit_params_apgd)

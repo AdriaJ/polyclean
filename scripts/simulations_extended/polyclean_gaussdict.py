@@ -22,10 +22,10 @@ import polyclean.polyclean as pc
 import polyclean.kernels as pck
 from polyclean.clean_utils import mjCLEAN
 
-import pycsou.operator as pycop
-import pycsou.opt.solver as pycsol
-import pycsou.util.ptype as pyct
-import pycsou.util.complex as pycuc
+import pyxu.operator as pxop
+import pyxu.opt.solver as pxsol
+import pyxu.info.ptype as pxt
+import pyxu.util.complex as pxc
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -101,20 +101,20 @@ class GaussPolyCLEAN(polyclean.PolyCLEAN):
         self.measOp = self.forwardOp
         self.forwardOp = self.measOp * self.kernels
 
-    def rs_forwardOp(self, support_indices: pyct.NDArray) -> pyct.OpT:
+    def rs_forwardOp(self, support_indices: pxt.NDArray) -> pxt.OpT:
         if support_indices.size == 0:
-            return pycop.NullOp(shape=(self.forwardOp.shape[0], 0))
+            return pxop.NullOp(shape=(self.forwardOp.shape[0], 0))
         else:
             tmp = np.zeros(self.kernels.shape[1])
             tmp[support_indices] = 1.
             supp = np.where(self.kernels(tmp) != 0)[0]
-            ss = pycop.SubSample(self.kernels.shape[0], supp)
+            ss = pxop.SubSample(self.kernels.shape[0], supp)
             op = pc.generatorVisOp(self._direction_cosines[supp, :],
                                    self._uvw,
                                    self._nufft_eps,
                                    chunked=self._chunked,
                                    )
-            injection = pycop.SubSample(self.kernels.shape[1], support_indices).T
+            injection = pxop.SubSample(self.kernels.shape[1], support_indices).T
             return op * ss * self.kernels * injection
 
 def truncate_colormap(cmap, minval, maxval, n=100):
@@ -388,13 +388,13 @@ if __name__ == "__main__":
     sol_apgd = np.zeros_like(sol_pc)
     apgd_residual_im = apgd_comp.copy(deep=True)
     if do_apgd:
-        data_fid_synth = 0.5 * pycop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
-        regul_synth = lambda_ * pycop.L1Norm(dim=forwardOp.shape[1])
+        data_fid_synth = 0.5 * pxop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
+        regul_synth = lambda_ * pxop.L1Norm(dim=forwardOp.shape[1])
         # regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, forwardOp.shape[1]))  # No positivity constraint here
-        apgd = pycsol.PGD(data_fid_synth, regul_synth, show_progress=False)
-        import pycsou.opt.stop as pycos
+        apgd = pxsol.PGD(data_fid_synth, regul_synth, show_progress=False)
+        import pyxu.opt.stop as pxos
 
-        supp_count = pycos.AbsError(.1, 'x', f=lambda x: 1 + np.count_nonzero(x))
+        supp_count = pxos.AbsError(.1, 'x', f=lambda x: 1 + np.count_nonzero(x))
         fit_parameters_apgd = {
             "x0": np.zeros(forwardOp.shape[1], dtype="float64"),
             "stop_crit": reco.stop_crit(tmax, min_iter, eps,
@@ -425,7 +425,7 @@ if __name__ == "__main__":
 
     # MS-CLEAN
     predicted_visi = predict_visibility(vt, m31image, context=context)
-    predicted_visi.vis.data[predicted_visi.visibility_acc.flagged_weight.astype(bool)] += pycuc.view_as_complex(noise)
+    predicted_visi.vis.data[predicted_visi.visibility_acc.flagged_weight.astype(bool)] += pxc.view_as_complex(noise)
     clean_model = create_image_from_visibility(predicted_visi, cellsize=cellsize, npixel=2 * npixel)
     dirty, sumwt_dirty = invert_visibility(predicted_visi, clean_model, context=context)
     psf, sumwt = invert_visibility(predicted_visi, clean_model, context=context, dopsf=True)

@@ -13,7 +13,7 @@ from ska_sdp_datamodels.science_data_model.polarisation_model import Polarisatio
 from ska_sdp_func_python.imaging import predict_visibility
 from rascil.processing_components.visibility.base import export_visibility_to_ms
 
-import pycsou.util.complex as pycuc
+import pyxu.util.complex as pxc
 import polyclean.ra_utils as pcrau
 
 
@@ -77,10 +77,10 @@ if __name__ == "__main__":
     # direction_cosines = np.stack(skycoord_to_lmn(directions, phasecentre), axis=-1)
 
     predicted_visi = predict_visibility(vt, sky_im, context=config['clean_params']['context'])
-    real_visi = pycuc.view_as_real(predicted_visi.vis.data[:, :, 0, 0] * predicted_visi.weight.data[:, :, 0, 0])
+    real_visi = pxc.view_as_real(predicted_visi.vis.data[:, :, 0, 0] * predicted_visi.weight.data[:, :, 0, 0])
     noise_scale = np.abs(real_visi).max() * 10 ** (-config['ra_config']['psnr_db'] / 20) / np.sqrt(2)
     noise = np.random.normal(0, noise_scale, real_visi.shape)
-    predicted_visi.vis.data += pycuc.view_as_complex(noise)[:, :, None, None]
+    predicted_visi.vis.data += pxc.view_as_complex(noise)[:, :, None, None]
 
     with open(os.path.join(TMP_DATA_DIR, 'gtimage.pkl'), 'wb') as file:
         pickle.dump(sky_im, file)

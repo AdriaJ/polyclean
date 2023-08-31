@@ -4,8 +4,8 @@ import numpy as np
 from ska_sdp_datamodels.image import Image
 from ska_sdp_datamodels.visibility.vis_model import Visibility
 
-import pycsou.abc as pyca
-import pycsou.util.ptype as pyct
+import pyxu.abc.solver as pxas
+import pyxu.info.ptype as pxt
 
 
 import polyclean as pc
@@ -16,14 +16,14 @@ def stop_crit(
         min_iter: int,
         eps: float,
         value: float = None,
-) -> pyca.StoppingCriterion:
+) -> pxas.StoppingCriterion:
     import datetime as dt
-    import pycsou.opt.stop as pycos
+    import pyxu.opt.stop as pxos
 
-    duration_stop = pycos.MaxDuration(t=dt.timedelta(seconds=tmax))
-    min_iter_stop = pycos.MaxIter(n=min_iter)
+    duration_stop = pxos.MaxDuration(t=dt.timedelta(seconds=tmax))
+    min_iter_stop = pxos.MaxIter(n=min_iter)
     if value is None:
-        stop_crit = pycos.RelError(
+        stop_crit = pxos.RelError(
             eps=eps,
             var="objective_func",
             f=None,
@@ -31,7 +31,7 @@ def stop_crit(
             satisfy_all=True,
         )
     else:
-        stop_crit = pycos.AbsError(eps=value, var="objective_func")
+        stop_crit = pxos.AbsError(eps=value, var="objective_func")
     return (stop_crit & min_iter_stop) | duration_stop
 
 
@@ -89,9 +89,9 @@ def reco_clean(
 
 
 def reco_pclean(
-        uvwlambda: pyct.NDArray,
-        direction_cosines: pyct.NDArray,
-        data: pyct.NDArray,
+        uvwlambda: pxt.NDArray,
+        direction_cosines: pxt.NDArray,
+        data: pxt.NDArray,
         lambda_: float,
         pclean_parameters: dict,
         fit_parameters: dict,
@@ -115,17 +115,17 @@ def reco_pclean(
 
 
 def reco_pclean_plus(
-        uvwlambda: pyct.NDArray,
-        direction_cosines: pyct.NDArray,
-        data: pyct.NDArray,
+        uvwlambda: pxt.NDArray,
+        direction_cosines: pxt.NDArray,
+        data: pxt.NDArray,
         lambda_: float,
         pcleanp_parameters: dict,
         fit_parameters: dict,
         diagnostics: bool = True,
         log_diagnostics: bool = False,
 ):
-    import pycsou.operator as pycop
-    import pycsou.opt.solver as pycsol
+    import pyxu.operator as pxop
+    import pyxu.opt.solver as pxsol
 
     rate_tk = pcleanp_parameters.get("rate_lsr", 0.)
     assert rate_tk >= 0.
@@ -151,11 +151,11 @@ def reco_pclean_plus(
     sol = solution["x"]
     support = np.nonzero(sol)[0]
     rs_forwardOp = pclean.rs_forwardOp(support)
-    rs_data_fid = .5 * pycop.SquaredL2Norm(dim=rs_forwardOp.shape[0]).argshift(-data) * rs_forwardOp
+    rs_data_fid = .5 * pxop.SquaredL2Norm(dim=rs_forwardOp.shape[0]).argshift(-data) * rs_forwardOp
     if rate_tk > 0.:
-        rs_data_fid = rs_data_fid + 0.5 * rate_tk * fit_parameters["diff_lipschitz"] * pycop.SquaredL2Norm(dim=rs_forwardOp.shape[1])
-    rs_regul = pycop.PositiveOrthant(dim=rs_forwardOp.shape[1])
-    lsr_apgd = pycsol.PGD(rs_data_fid, rs_regul, show_progress=False)
+        rs_data_fid = rs_data_fid + 0.5 * rate_tk * fit_parameters["diff_lipschitz"] * pxop.SquaredL2Norm(dim=rs_forwardOp.shape[1])
+    rs_regul = pxop.PositiveOrthant(dim=rs_forwardOp.shape[1])
+    lsr_apgd = pxsol.PGD(rs_data_fid, rs_regul, show_progress=False)
     print("Least squares reweighting:")
     lsr_apgd.fit(x0=sol[support],
                  stop_crit=s,
@@ -173,29 +173,29 @@ def reco_pclean_plus(
 
 
 def reco_apgd(
-        uvwlambda: pyct.NDArray,
-        direction_cosines: pyct.NDArray,
-        data: pyct.NDArray,
+        uvwlambda: pxt.NDArray,
+        direction_cosines: pxt.NDArray,
+        data: pxt.NDArray,
         lambda_: float,
         apgd_parameters: dict,
         fit_parameters: dict,
 ):
-    import pycsou.operator as pycop
-    import pycsou.opt.solver as pycsol
+    import pyxu.operator as pxop
+    import pyxu.opt.solver as pxsol
     import pyfwl
 
     forwardOp = pc.generatorVisOp(direction_cosines,
                                   uvwlambda,
                                   apgd_parameters["nufft_eps"])
-    data_fid_synth = 0.5 * pycop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-data) * forwardOp
+    data_fid_synth = 0.5 * pxop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-data) * forwardOp
     regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, None))
-    apgd = pycsol.PGD(data_fid_synth, regul_synth, show_progress=False)
+    apgd = pxsol.PGD(data_fid_synth, regul_synth, show_progress=False)
     print("APGD: Solving ...")
     start = time.time()
     apgd.fit(**fit_parameters)
         # x0=np.zeros(forwardOp.shape[1], dtype="float64"),
         # # stop_crit=(min_iter_stop & apgd.default_stop_crit()) | duration_stop,
-        # stop_crit=(min_iter_stop & pycos.AbsError(eps=hist["Memorize[objective_func]"][-1],
+        # stop_crit=(min_iter_stop & pxos.AbsError(eps=hist["Memorize[objective_func]"][-1],
         #                                           var="objective_func")) | duration_stop,
         # track_objective=True,
         # tau=1 / (fOp_lipschitz ** 2),

@@ -11,9 +11,9 @@ from ska_sdp_func_python.image import fit_psf, restore_cube
 from ska_sdp_func_python.imaging import create_image_from_visibility, invert_visibility
 from ska_sdp_func_python.util import skycoord_to_lmn
 
-import pycsou.util.complex as pycuc
-import pycsou.operator as pycop
-import pycsou.opt.solver as pycsol
+import pyxu.util.complex as pxc
+import pyxu.operator as pxop
+import pyxu.opt.solver as pxsol
 
 import pyfwl
 
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     dt_lipschitz = time.time() - start
     print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)\n".format(dt_lipschitz))
 
-    measurements = pycuc.view_as_real(predicted_visi.vis.data.reshape(-1)[flags_bool])
+    measurements = pxc.view_as_real(predicted_visi.vis.data.reshape(-1)[flags_bool])
     sum_vis = measurements.shape[0] // 2
     dirty_array = forwardOp.adjoint(measurements)  # 28s in chunked mode
     lambda_ = config['lasso_params']['lambda_factor'] * np.abs(dirty_array).max()
@@ -132,9 +132,9 @@ if __name__ == "__main__":
             "track_objective": True,
             "tau": 1 / (fOp_lipschitz ** 2)
         }
-        data_fid_synth = 0.5 * pycop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
+        data_fid_synth = 0.5 * pxop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
         regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, None))
-        apgd = pycsol.PGD(data_fid_synth, regul_synth, show_progress=False)
+        apgd = pxsol.PGD(data_fid_synth, regul_synth, show_progress=False)
         print("APGD: Solving ...")
         start = time.time()
         apgd.fit(**fit_params_apgd)

@@ -2,8 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
 
-import pycsou.runtime as pycrt
-
 from ska_sdp_datamodels.image import Image
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.sky_model import SkyComponent

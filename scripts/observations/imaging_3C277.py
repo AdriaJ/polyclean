@@ -11,7 +11,7 @@ import time
 import polyclean.image_utils as ut
 import polyclean.polyclean as pc
 import polyclean.reconstructions as reco
-import pycsou.util.complex as pycuc
+import pyxu.util.complex as pxc
 
 from astropy.coordinates import SkyCoord
 from astropy import units as u
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     lipschitz_time = time.time() - start
     print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)\n".format(lipschitz_time))
 
-    vis_array = pycuc.view_as_real(selected_vis.vis.data.reshape(-1)[flags_bool])
+    vis_array = pxc.view_as_real(selected_vis.vis.data.reshape(-1)[flags_bool])
 
     dirty_hvox_arr = forwardOp.adjoint(vis_array)
     lambda_ = lambda_factor * np.abs(dirty_hvox_arr).max()

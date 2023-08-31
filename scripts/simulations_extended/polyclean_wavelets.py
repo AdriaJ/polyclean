@@ -30,8 +30,8 @@ import pycsou_pywt as pycwt
 
 import pyfwl
 
-import pycsou.operator as pycop
-import pycsou.opt.solver as pycsol
+import pyxu.operator as pxop
+import pyxu.opt.solver as pxsol
 
 import matplotlib
 
@@ -155,10 +155,10 @@ if __name__ == "__main__":
     pclean_comp.pixels.data[0, 0] = sol_pc.reshape((npixel,) * 2)
 
     # APGD
-    data_fid_synth = 0.5 * pycop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
-    regul_synth = lambda_ * pycop.L1Norm(dim=forwardOp.shape[1])
+    data_fid_synth = 0.5 * pxop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
+    regul_synth = lambda_ * pxop.L1Norm(dim=forwardOp.shape[1])
     # regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, forwardOp.shape[1]))  # No positivity constraint here
-    apgd = pycsol.PGD(data_fid_synth, regul_synth, show_progress=False)
+    apgd = pxsol.PGD(data_fid_synth, regul_synth, show_progress=False)
     fit_parameters_apgd = {
         "x0": np.zeros(forwardOp.shape[1], dtype="float64"),
         "stop_crit": reco.stop_crit(tmax, min_iter, eps,), # value=hist_pc["Memorize[objective_func]"][-1]),

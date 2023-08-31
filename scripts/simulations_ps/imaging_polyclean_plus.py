@@ -12,8 +12,8 @@ import polyclean.reconstructions as reco
 import polyclean.image_utils as ut
 import polyclean.polyclean as pc
 
-import pycsou.operator as pycop
-import pycsou.opt.solver as pycsol
+import pyxu.operator as pxop
+import pyxu.opt.solver as pxsol
 
 import matplotlib
 matplotlib.use("Qt5Agg")
@@ -143,12 +143,12 @@ if __name__ == "__main__":
     sol = solution["x"]
     support = np.nonzero(sol)[0]
     rs_forwardOp = pclean.rs_forwardOp(support)
-    rs_data_fid = .5 * pycop.SquaredL2Norm(dim=rs_forwardOp.shape[0]).argshift(-measurements) * rs_forwardOp
+    rs_data_fid = .5 * pxop.SquaredL2Norm(dim=rs_forwardOp.shape[0]).argshift(-measurements) * rs_forwardOp
     rate_tk = pcleanp_parameters.get("rate_lsr", 0.)
     if rate_tk > 0.:
-        rs_data_fid = rs_data_fid + 0.5 * rate_tk * fit_parameters["diff_lipschitz"] * pycop.SquaredL2Norm(dim=rs_forwardOp.shape[1])
-    rs_regul = pycop.PositiveOrthant(dim=rs_forwardOp.shape[1])
-    lsr_apgd = pycsol.PGD(rs_data_fid, rs_regul, show_progress=False)
+        rs_data_fid = rs_data_fid + 0.5 * rate_tk * fit_parameters["diff_lipschitz"] * pxop.SquaredL2Norm(dim=rs_forwardOp.shape[1])
+    rs_regul = pxop.PositiveOrthant(dim=rs_forwardOp.shape[1])
+    lsr_apgd = pxsol.PGD(rs_data_fid, rs_regul, show_progress=False)
     print("Least squares reweighting:")
     lsr_apgd.fit(x0=sol[support],
                  stop_crit=s,
@@ -195,8 +195,8 @@ if __name__ == "__main__":
 
     ut.plot_image(pcleanp_comp, sc=sc, title="PolyCLEAN+ Components")
 
-    # import pycsou.operator as pycop
-    # op = pycop.NUFFT.type3(x=np.array([]).reshape((0, 3)),  # direction_cosines,
+    # import pyxu.operator as pxop
+    # op = pxop.NUFFT.type3(x=np.array([]).reshape((0, 3)),  # direction_cosines,
     #                        z=2 * np.pi * flagged_uvwlambda,
     #                        real=True, isign=-1, eps=nufft_eps,
     #                        chunked=True,

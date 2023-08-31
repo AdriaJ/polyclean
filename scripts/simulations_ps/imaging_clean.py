@@ -22,7 +22,7 @@ from ska_sdp_datamodels.science_data_model.polarisation_model import Polarisatio
 import polyclean.image_utils as ut
 from polyclean.clean_utils import mjCLEAN
 
-import pycsou.util.complex as pycuc
+import pyxu.util.complex as pxc
 
 import matplotlib
 
@@ -114,10 +114,10 @@ if __name__ == "__main__":
     # clean_model = create_image_from_visibility(predicted_visi, cellsize=cellsize, npixel=2 * npixel)
     # noiseless_dirty, sumwt_dirty = invert_visibility(predicted_visi, clean_model, context=context)
     # ut.plot_image(noiseless_dirty)
-    real_visi = pycuc.view_as_real(predicted_visi.vis.data[:, :, 0, 0])
+    real_visi = pxc.view_as_real(predicted_visi.vis.data[:, :, 0, 0])
     noise_scale = np.abs(real_visi).max() * 10 ** (-psnrdb / 20) / np.sqrt(2)
     noise = np.random.normal(0, noise_scale, real_visi.shape)
-    predicted_visi.vis.data += pycuc.view_as_complex(noise)[:, :, None, None]
+    predicted_visi.vis.data += pxc.view_as_complex(noise)[:, :, None, None]
 
     image_model = create_image_from_visibility(predicted_visi, cellsize=cellsize, npixel=npixel)
 

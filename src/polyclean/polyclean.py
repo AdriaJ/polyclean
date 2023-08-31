@@ -3,21 +3,12 @@ import typing as typ
 import datetime as dt
 
 import pyfwl
-import pycsou.abc.solver as pycas
-import pycsou.util.ptype as pyct
-import pycsou.abc.operator as pyco
-import pycsou.operator as pycop
-import pycsou.util.complex as pycuc
-import pycsou.opt.stop as pycos
-
-import polyclean.image_utils as ut
-
-from ska_sdp_datamodels.image import Image
-from ska_sdp_datamodels.visibility.vis_model import Visibility
-from ska_sdp_func_python.util import skycoord_to_lmn
-
-from astropy import units as u
-from astropy.coordinates import SkyCoord
+import pyxu.abc.solver as pxas
+import pyxu.info.ptype as pxt
+import pyxu.abc.operator as pxao
+import pyxu.operator as pxop
+import pyxu.util.complex as pxc
+import pyxu.opt.stop as pxos
 
 #  from operators import stackedWaveletDec
 
@@ -38,14 +29,14 @@ class _RALassoHvoxImager:
 
     def __init__(
             self,
-            data: pyct.NDArray,
-            uvwlambda: pyct.NDArray,
-            direction_cosines: pyct.NDArray,
+            data: pxt.NDArray,
+            uvwlambda: pxt.NDArray,
+            direction_cosines: pxt.NDArray,
             lambda_: float = None,
             lambda_factor: float = 0.1,
             nufft_eps: float = 1e-3,
             chunked=False,
-            flagged_bool_mask: pyct.NDArray = None,
+            flagged_bool_mask: pxt.NDArray = None,
             **kwargs,
     ):
         """
@@ -80,9 +71,9 @@ class _RALassoHvoxImager:
             lambda_ = lambda_factor * np.abs(self.forwardOp.adjoint(data)).max()
         self.lambda_ = lambda_
 
-    def rs_forwardOp(self, support_indices: pyct.NDArray) -> pyco.LinOp:
+    def rs_forwardOp(self, support_indices: pxt.NDArray) -> pxao.LinOp:
         if support_indices.size == 0:
-            return pycop.NullOp(
+            return pxop.NullOp(
                 shape=(2 * self._uvw.shape[0], 0))  # complex valued visibilities => 2 measurements per baseline
         else:
             return generatorVisOp(self._direction_cosines[support_indices, :],
@@ -102,7 +93,7 @@ class PolyCLEAN(_RALassoHvoxImager, pyfwl.PFWLasso):
             min_correction_steps: int = 5,
             max_correction_steps: int = 100,
             *,
-            folder=None,  # : typ.Optional[pyct.PathLike] = None,
+            folder=None,  # : typ.Optional[pxt.PathLike] = None,
             exist_ok: bool = False,
             stop_rate: int = 1,
             writeback_rate: typ.Optional[int] = None,
@@ -136,7 +127,7 @@ class MonoFW(_RALassoHvoxImager, pyfwl.VFWLasso):
             self,
             step_size: str = "optimal",
             *,
-            folder=None,  # : typ.Optional[pyct.PathLike] = None,
+            folder=None,  # : typ.Optional[pxt.PathLike] = None,
             exist_ok: bool = False,
             stop_rate: int = 1,
             writeback_rate: typ.Optional[int] = None,
@@ -158,44 +149,12 @@ class MonoFW(_RALassoHvoxImager, pyfwl.VFWLasso):
             show_progress=show_progress,
         )
 
-    # def rs_forwardOp(self, support_indices: pyct.NDArray) -> pyco.LinOp:
-    #     if support_indices.size == 0:
-    #         return pycop.NullOp(shape=(self.forwardOp.shape[0], 0))
-    #     else:
-    #         return generatorVisOp(self._direction_cosines[support_indices, :],
-    #                               self._uvw,
-    #                               self._nufft_eps,
-    #                               chunked=self._chunked,
-    #                               )
-
-    # def df_grad(self) -> pyct.NDArray:
-    #     if self._astate["idx"] % self._minor_cycles == 0:
-    #         return super().df_grad()
-    #     else:
-    #         return pycop.QuadraticFunc(self.convOp,
-    #                                    -1. * InnerProductRef(reference=self._dirty_image),
-    #                                    init_lipschitz=False
-    #                                    ).grad(self._mstate["x"])
-
-    # def rs_data_fid(self, support_indices: pyct.NDArray) -> pyco.DiffFunc:
-    #     if self._astate["idx"] % self._minor_cycles == 0:
-    #         rs_forwardOp = generatorVisOp(self._direction_cosines[support_indices, :],
-    #                                       self._uvw,
-    #                                       self._nufft_eps)
-    #         return 0.5 * pycop.SquaredL2Norm(dim=self.forwardOp.shape[0]).argshift(-self.data) * rs_forwardOp
-    #     else:
-    #         ss = pycop.SubSample(self.forwardOp.shape[1], support_indices)
-    #         return pycop.QuadraticFunc(ss * self.convOp * ss.T,
-    #                                    -1. * InnerProductRef(reference=ss(self._dirty_image)),
-    #                                    init_lipschitz=False)
-
-
-def generatorVisOp(direction_cosines: pyct.NDArray,
-                   vlambda: pyct.NDArray,
+def generatorVisOp(direction_cosines: pxt.NDArray,
+                   vlambda: pxt.NDArray,
                    nufft_eps: float = 1e-3,
                    chunked=False,
                    **kwargs,
-                   ) -> pycop.NUFFT:  # pyct.OpT ??
+                   ) -> pxop.NUFFT:  # pxt.OpT ??
     r"""
 
     Parameters
@@ -216,7 +175,7 @@ def generatorVisOp(direction_cosines: pyct.NDArray,
         # direct computation for small size FT
         nufft_eps = 0.
 
-    op = pycop.NUFFT.type3(x=direction_cosines, z=2 * np.pi * vlambda, real=True, isign=-1, eps=nufft_eps,
+    op = pxop.NUFFT.type3(x=direction_cosines, z=2 * np.pi * vlambda, real=True, isign=-1, eps=nufft_eps,
                            chunked=chunked,
                            parallel=chunked,
                            enable_warnings=False,
@@ -225,7 +184,7 @@ def generatorVisOp(direction_cosines: pyct.NDArray,
         x_chunks, z_chunks = op.auto_chunk(max_mem=max_mem)
         op.allocate(x_chunks, z_chunks, direct_eval_threshold=direct_eval_threshold)
     n = direction_cosines[..., :, -1]
-    diag = pycop.DiagonalOp(1 / (n + 1.))
+    diag = pxop.DiagonalOp(1 / (n + 1.))
     op = op * diag
     op._diff_lipschitz = 0.
     return op
@@ -235,11 +194,11 @@ def stop_crit(tmax: float,
               min_iter: int,
               eps: float,
               value: float = None,
-              ) -> pycas.StoppingCriterion:
-    duration_stop = pycos.MaxDuration(t=dt.timedelta(seconds=tmax))
-    min_iter_stop = pycos.MaxIter(n=min_iter)
+              ) -> pxas.StoppingCriterion:
+    duration_stop = pxos.MaxDuration(t=dt.timedelta(seconds=tmax))
+    min_iter_stop = pxos.MaxIter(n=min_iter)
     if value is None:
-        stop_crit = pycos.RelError(
+        stop_crit = pxos.RelError(
             eps=eps,
             var="objective_func",
             f=None,
@@ -247,20 +206,28 @@ def stop_crit(tmax: float,
             satisfy_all=True,
         )
     else:
-        stop_crit = pycos.AbsError(eps=value, var="objective_func")
+        stop_crit = pxos.AbsError(eps=value, var="objective_func")
     return (stop_crit & min_iter_stop) | duration_stop
 
+# import polyclean.image_utils as ut
+#
+# from ska_sdp_datamodels.image import Image
+# from ska_sdp_datamodels.visibility.vis_model import Visibility
+# from ska_sdp_func_python.util import skycoord_to_lmn
+#
+# from astropy import units as u
+# from astropy.coordinates import SkyCoord
 
 # class WtPolyCLEAN(pyfwl.PolyatomicFWforLasso):
 #     def __init__(
 #             self,
 #             visibility_template: Visibility,
 #             image_model: Image,
-#             data: pyct.NDArray,
+#             data: pxt.NDArray,
 #             lambda_: float = None,
 #             lambda_factor: float = 0.1,
 #             nufft_eps: float = 1e-3,
-#             flagged_bool_mask: pyct.NDArray = None,
+#             flagged_bool_mask: pxt.NDArray = None,
 #             ms_threshold: float = 0.7,  # multi spikes threshold at init
 #             init_correction_prec: float = 0.2,
 #             final_correction_prec: float = 1e-4,
@@ -270,13 +237,13 @@ def stop_crit(tmax: float,
 #             level: int = 4,
 #             include_dirac: bool = False,
 #             *,
-#             folder=None,  # : typ.Optional[pyct.PathLike] = None,
+#             folder=None,  # : typ.Optional[pxt.PathLike] = None,
 #             exist_ok: bool = False,
 #             stop_rate: int = 1,
 #             writeback_rate: typ.Optional[int] = None,
 #             verbosity: int = 10,
 #             show_progress: bool = True,
-#             log_var: pyct.VarName = (
+#             log_var: pxt.VarName = (
 #                     "x",
 #                     "dcv",
 #             ),
@@ -334,7 +301,7 @@ def stop_crit(tmax: float,
 
 # x_idx, x_chunks = A.order("x")  # get a good x-ordering
 # z_idx, z_chunks = A.order("z")  # get a good z-ordering
-# A = pycl.NUFFT.type3(
+# A = pxl.NUFFT.type3(
 #         x[x_idx], z[z_idx]  # re-order x/z accordingly
 #         ...                 # same as before
 #      )
@@ -344,18 +311,18 @@ def stop_crit(tmax: float,
 # todo lipschitz constant of NUFFT type 3: computation time ?
 #  We can probably deduce it from the largest frequency (?)
 
-class InnerProductRef(pyco.LinFunc):
-    def __init__(self, reference: pyct.NDArray, support=None):
+class InnerProductRef(pxao.LinFunc):
+    def __init__(self, reference: pxt.NDArray, support=None):
         if support is None:
             support = slice(None)
         self._support = support
         self._ref = reference[support]
         super().__init__(shape=(1, self._ref.shape[0]))
 
-    def apply(self, arr: pyct.NDArray) -> pyct.NDArray:
+    def apply(self, arr: pxt.NDArray) -> pxt.NDArray:
         return np.array((self._ref * arr).sum(axis=-1))
 
-    def adjoint(self, arr: pyct.NDArray) -> pyct.NDArray:
+    def adjoint(self, arr: pxt.NDArray) -> pxt.NDArray:
         assert np.r_[arr].shape[-1] == 1
         return arr * self._ref
 
@@ -364,7 +331,7 @@ def psf_kernel(direction_cosines, flagged_uvwlambda, npixel, intensity_rate=.1):
     forwardOp = generatorVisOp(direction_cosines=direction_cosines,
                                vlambda=flagged_uvwlambda,
                                nufft_eps=1e-4, )
-    simulated_vis_psf = pycuc.view_as_real(np.ones(forwardOp.shape[0] // 2).astype(complex))
+    simulated_vis_psf = pxc.view_as_real(np.ones(forwardOp.shape[0] // 2).astype(complex))
     full_psf = forwardOp.adjoint(simulated_vis_psf).reshape((npixel, npixel))
     index_center = np.array(np.unravel_index(np.argmax(full_psf), (npixel,) * 2))
     indices_mask = np.array(

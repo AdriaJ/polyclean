@@ -69,20 +69,20 @@ algorithm = PolyCLEAN
         show_progress=False
     ]
     inputs = [
-        flagged_uvwlambda : pycsou.NDArray,  # for the baselines and the flagged visibilities
-        direction_cosines : pycsou.NDArray,  # for the direction cosines
-        measurements : pycsou.NDArray,
+        flagged_uvwlambda : pyxu.NDArray,  # for the baselines and the flagged visibilities
+        direction_cosines : pyxu.NDArray,  # for the direction cosines
+        measurements : pyxu.NDArray,
         lambda_ : float,
     ]
     fit_parameters = [
-        stop : pycsou.StoppingCriterion,
+        stop : pyxu.StoppingCriterion,
         positivity_constraint=True,
         diff_lipschitz: float,
     ]
     outputs = [
         data : dict
             {
-            "x" : pycsou.NDArray,
+            "x" : pyxu.NDArray,
             "dcv" : float
             }
         hist : dict[numpy.ndarray]
@@ -107,20 +107,20 @@ algorithm = PolyCLEAN+
         overtime_lsr=0.2,
     ]
     inputs = [
-        flagged_uvwlambda : pycsou.NDArray,  # for the baselines and the flagged visibilities
-        direction_cosines : pycsou.NDArray,  # for the direction cosines
-        measurements : pycsou.NDArray,
+        flagged_uvwlambda : pyxu.NDArray,  # for the baselines and the flagged visibilities
+        direction_cosines : pyxu.NDArray,  # for the direction cosines
+        measurements : pyxu.NDArray,
         lambda_ : float,
     ]
     fit_parameters = [
-        stop : pycsou.StoppingCriterion,
+        stop : pyxu.StoppingCriterion,
         positivity_constraint=True,
         diff_lipschitz: float,
     ]
     outputs = [
         data : dict
             {
-            "x" : pycsou.NDArray,
+            "x" : pyxu.NDArray,
             "dcv" : float
             }
         hist : dict[numpy.ndarray]
@@ -141,13 +141,13 @@ algorithm = APGD
         nufft_eps=1e-3,
     ]
     inputs = [
-        flagged_uvwlambda : pycsou.NDArray,  # for the baselines and the flagged visibilities
-        direction_cosines : pycsou.NDArray,  # for the direction cosines
-        measurements : pycsou.NDArray,
+        flagged_uvwlambda : pyxu.NDArray,  # for the baselines and the flagged visibilities
+        direction_cosines : pyxu.NDArray,  # for the direction cosines
+        measurements : pyxu.NDArray,
         lambda_ : float,
     ]
     fit_parameters = [
-        stop : pycsou.StoppingCriterion,
+        stop : pyxu.StoppingCriterion,
         tau: float,
         x0=np.zeros(forwardOp.shape[1], dtype="float64"),
         track_objective=True,
@@ -155,7 +155,7 @@ algorithm = APGD
     outputs = [
         data : dict
             {
-            "x" : pycsou.NDArray,
+            "x" : pyxu.NDArray,
             }
         hist : dict[numpy.ndarray]
             {

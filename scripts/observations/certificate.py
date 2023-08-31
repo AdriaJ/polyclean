@@ -13,8 +13,8 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import polyclean.image_utils as ut
 import polyclean.polyclean as pc
 
-import pycsou.util.complex as pycuc
-import pycsou.opt.stop as pycos
+import pyxu.util.complex as pxc
+import pyxu.opt.stop as pxos
 
 from astropy.coordinates import SkyCoord
 from astropy import units as u
@@ -100,14 +100,14 @@ if __name__ == "__main__":
     dt_lipschitz = time.time() - start
     print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)\n".format(dt_lipschitz))
 
-    vis_array = pycuc.view_as_real(vis.vis.data.reshape(-1)[flags_bool])
+    vis_array = pxc.view_as_real(vis.vis.data.reshape(-1)[flags_bool])
     sum_vis = vis_array.shape[0]//2
     dirty_array = forwardOp.adjoint(vis_array)  # 28s in chunked mode
     lambda_ = lambda_factor * np.abs(dirty_array).max()
 
-    duration_stop = pycos.MaxDuration(t=dt.timedelta(seconds=tmax))
-    min_iter_stop = pycos.MaxIter(n=min_iter)
-    stop_crit = pycos.AbsError(
+    duration_stop = pxos.MaxDuration(t=dt.timedelta(seconds=tmax))
+    min_iter_stop = pxos.MaxIter(n=min_iter)
+    stop_crit = pxos.AbsError(
         eps=eps,
         var="dcv",
         f=lambda x: np.abs(x) - 1,

@@ -7,8 +7,8 @@ import numpy as np
 import typing as typ
 import collections.abc as cabc
 
-import pycsou.operator as pycop
-import pycsou.util.ptype as pyct
+import pyxu.operator as pxop
+import pyxu.info.ptype as pxt
 
 __all__ = [
     "kernelGen",
@@ -29,7 +29,7 @@ def gauss2D(x, scale):
     return res / np.linalg.norm(res, 'fro')
 
 
-def kernelGen(arg_shape, scale, n_supp: int = 2, norm: int = 2) -> pyct.OpT:
+def kernelGen(arg_shape, scale, n_supp: int = 2, norm: int = 2) -> pxt.OpT:
     """
 
     Parameters
@@ -41,12 +41,12 @@ def kernelGen(arg_shape, scale, n_supp: int = 2, norm: int = 2) -> pyct.OpT:
     """
     assert arg_shape[0] == arg_shape[1]
     if scale == 0:
-        return pycop.IdentityOp(dim=arg_shape[0]**2)
+        return pxop.IdentityOp(dim=arg_shape[0]**2)
     half_support = np.ceil(n_supp * scale).astype(int)
     kernel_center = half_support
     kernek1d = gauss1D(np.arange(2 * half_support + 1) - half_support, scale, norm=norm)
-    convOp = pycop.Convolve(arg_shape, (kernek1d, kernek1d), (half_support,) * 2, mode='constant')
-    injection = pycop.SubSample(arg_shape,
+    convOp = pxop.Convolve(arg_shape, (kernek1d, kernek1d), (half_support,) * 2, mode='constant')
+    injection = pxop.SubSample(arg_shape,
                                 slice(half_support, arg_shape[0] - half_support),
                                 slice(half_support, arg_shape[0] - half_support)).T
     res = convOp * injection
@@ -55,14 +55,14 @@ def kernelGen(arg_shape, scale, n_supp: int = 2, norm: int = 2) -> pyct.OpT:
 
 
 def stackedKernels(
-        input_shape: typ.Union[pyct.NDArrayShape, cabc.Sequence[pyct.NDArrayShape]],
+        input_shape: typ.Union[pxt.NDArrayShape, cabc.Sequence[pxt.NDArrayShape]],
         scale_list: typ.Union[int, cabc.Sequence[int]],
         n_supp: int = 2,
         norm: int = 2,
         bias_list: list = None,
         tight_lipschitz: bool = True,
         verbose: bool = False,
-) -> pyct.OpT:
+) -> pxt.OpT:
     if not isinstance(scale_list, list):
         op = kernelGen(input_shape, scale_list)
         if bias_list is not None:
@@ -70,7 +70,7 @@ def stackedKernels(
                 bias = bias_list[0]
             else:
                 bias = bias_list
-            return pycop.HomothetyOp(op.shape[0], bias) * op
+            return pxop.HomothetyOp(op.shape[0], bias) * op
         else:
             return op
     if verbose:
@@ -78,8 +78,8 @@ def stackedKernels(
     op_list = [kernelGen(arg_shape=input_shape, scale=s, n_supp=n_supp, norm=norm) for s in scale_list]
     if bias_list is not None:
         assert len(bias_list) == len(scale_list)
-        op_list = [pycop.HomothetyOp(op.shape[0], bias) * op for op, bias in zip(op_list, bias_list)]
-    res = pycop.stack(op_list, axis=1)
+        op_list = [pxop.HomothetyOp(op.shape[0], bias) * op for op, bias in zip(op_list, bias_list)]
+    res = pxop.stack(op_list, axis=1)
     if verbose:
         print("Instantiation time: {:.2f}".format(time.time() - start))
         start = time.time()
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     # print([op.lipschitz() for op in ops])
     # print([op.lipschitz(tight=True) for op in ops])
     # print([op.shape for op in ops])
-    # res = pycop.stack(ops, axis=1)
+    # res = pxop.stack(ops, axis=1)
     # print(res.lipschitz())
     # print(res.lipschitz(tight=True))
     # offsets = res._block_offset

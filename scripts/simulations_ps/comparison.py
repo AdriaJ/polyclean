@@ -13,8 +13,8 @@ from ska_sdp_datamodels.science_data_model.polarisation_model import Polarisatio
 from ska_sdp_func_python.imaging import predict_visibility, invert_visibility, create_image_from_visibility
 from ska_sdp_func_python.image.deconvolution import restore_cube, fit_psf, restore_list, deconvolve_cube
 
-import pycsou.operator as pycop
-import pycsou.opt.solver as pycsol
+import pyxu.operator as pxop
+import pyxu.opt.solver as pxsol
 
 import pyfwl
 
@@ -177,13 +177,13 @@ if __name__ == "__main__":
     sol_pc = data_pc["x"]
     support = np.nonzero(sol_pc)[0]  # todo test np.where(np.abs(sol) > 1e-3)[0]
     rs_forwardOp = pclean.rs_forwardOp(support)
-    rs_data_fid = .5 * pycop.SquaredL2Norm(dim=rs_forwardOp.shape[0]).argshift(-measurements) * rs_forwardOp
+    rs_data_fid = .5 * pxop.SquaredL2Norm(dim=rs_forwardOp.shape[0]).argshift(-measurements) * rs_forwardOp
     rate_tk = pcleanp_parameters.get("rate_lsr", 0.)
     if rate_tk > 0.:
-        rs_data_fid = rs_data_fid + 0.5 * rate_tk * fit_parameters_pc["diff_lipschitz"] * pycop.SquaredL2Norm(
+        rs_data_fid = rs_data_fid + 0.5 * rate_tk * fit_parameters_pc["diff_lipschitz"] * pxop.SquaredL2Norm(
             dim=rs_forwardOp.shape[1])
-    rs_regul = pycop.PositiveOrthant(dim=rs_forwardOp.shape[1])
-    lsr_apgd = pycsol.PGD(rs_data_fid, rs_regul, show_progress=False)
+    rs_regul = pxop.PositiveOrthant(dim=rs_forwardOp.shape[1])
+    lsr_apgd = pxsol.PGD(rs_data_fid, rs_regul, show_progress=False)
     print("Least squares reweighting (PolyCLEAN+): ...")
     lsr_apgd.fit(x0=sol_pc[support],
                  stop_crit=s,
@@ -205,9 +205,9 @@ if __name__ == "__main__":
     # forwardOp = pc.generatorVisOp(direction_cosines,
     #                               flagged_uvwlambda,
     #                               nufft_eps)
-    data_fid_synth = 0.5 * pycop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
+    data_fid_synth = 0.5 * pxop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
     regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, None))
-    apgd = pycsol.PGD(data_fid_synth, regul_synth, show_progress=False)
+    apgd = pxsol.PGD(data_fid_synth, regul_synth, show_progress=False)
     print("APGD: Solving ...")
     start = time.time()
     apgd.fit(**fit_parameters_apgd)

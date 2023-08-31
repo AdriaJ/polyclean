@@ -9,7 +9,7 @@ from ska_sdp_datamodels.image.image_create import create_image
 from ska_sdp_func_python.util import skycoord_to_lmn
 from ska_sdp_func_python.sky_component import insert_skycomponent
 
-import pycsou.operator.linop as pycl
+import pyxu.operator.linop as pxl
 
 __all__ = [
     "generate_point_sources",
@@ -65,7 +65,7 @@ def get_nmodes(vt, epsilon, phasecentre=None, fov=None, direction_cosines=None, 
             skycoord_to_lmn(urc, phasecentre),
             skycoord_to_lmn(phasecentre, phasecentre),
         )
-        nufft = pycl.NUFFT.type3(
+        nufft = pxl.NUFFT.type3(
             x=np.array(lmn),
             z=2 * np.pi * vt.visibility_acc.uvw_lambda.reshape(-1, 3),
             real=True,
@@ -78,7 +78,7 @@ def get_nmodes(vt, epsilon, phasecentre=None, fov=None, direction_cosines=None, 
         return nufft._fft_shape(), None, None
 
     elif (fov is None) and (direction_cosines is not None):
-        nufft = pycl.NUFFT.type3(
+        nufft = pxl.NUFFT.type3(
             x=direction_cosines,
             z=2 * np.pi * vt.visibility_acc.uvw_lambda.reshape(-1, 3),
             real=True,

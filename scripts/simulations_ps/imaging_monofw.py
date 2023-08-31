@@ -16,8 +16,8 @@ import polyclean.polyclean as pc
 import polyclean.reconstructions as reco
 import polyclean.image_utils as ut
 
-import pycsou.operator as pycop
-import pycsou.opt.solver as pycsol
+import pyxu.operator as pxop
+import pyxu.opt.solver as pxsol
 
 import pyfwl
 
