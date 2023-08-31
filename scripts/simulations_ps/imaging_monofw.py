@@ -99,7 +99,7 @@ if __name__ == "__main__":
                                   nufft_eps=nufft_eps,
                                   chunked=chunked)
     # start = time.time()
-    # fOp_lipschitz = forwardOp.lipschitz(tol=1., tight=True)
+    # fOp_lipschitz = forwardOp.estimate_lipschitz(method='svd', tol=1.)
     # lipschitz_time = time.time() - start
     # print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)".format(lipschitz_time))
 

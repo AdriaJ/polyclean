@@ -96,7 +96,7 @@ if __name__ == "__main__":
     forwardOp = pc.generatorVisOp(direction_cosines=direction_cosines, vlambda=flagged_uvwlambda,
                                   nufft_eps=nufft_eps, chunked=False)
     start = time.time()
-    fOp_lipschitz = forwardOp.lipschitz(tol=1., tight=True)  # ~8000 in 18 min in chunked mode, no memory issue
+    fOp_lipschitz = forwardOp.estimate_lipschitz(method='svd', tol=1.)  # ~8000 in 18 min in chunked mode, no memory issue
     dt_lipschitz = time.time() - start
     print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)\n".format(dt_lipschitz))
 

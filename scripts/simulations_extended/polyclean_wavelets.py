@@ -97,7 +97,7 @@ if __name__ == "__main__":
                                vlambda=flagged_uvwlambda,
                                nufft_eps=nufft_eps)
     start = time.time()
-    mOp_lipschitz = measOp.lipschitz(tol=1., tight=True)
+    mOp_lipschitz = measOp.estimate_lipschitz(method='svd', tol=1.)
     lipschitz_time = time.time() - start
     print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)".format(lipschitz_time))
     measurements = measOp(m31image.pixels.data.reshape(-1))

@@ -50,7 +50,7 @@ def kernelGen(arg_shape, scale, n_supp: int = 2, norm: int = 2) -> pxt.OpT:
                                 slice(half_support, arg_shape[0] - half_support),
                                 slice(half_support, arg_shape[0] - half_support)).T
     res = convOp * injection
-    res.lipschitz(tight=False)  # we use the upper bound from the Stencil operator
+    res.estimate_lipschitz(method='trace')  # we use the upper bound from the Stencil operator
     return res
 
 
@@ -83,7 +83,8 @@ def stackedKernels(
     if verbose:
         print("Instantiation time: {:.2f}".format(time.time() - start))
         start = time.time()
-    res.lipschitz(tight=tight_lipschitz)
+    method = 'svd' if tight_lipschitz else 'trace'
+    res.estimate_lipschitz(method=method, tol=1.)
     if verbose:
         print("Lipschitz time: {:.2f}".format(time.time() - start))
     return res
@@ -127,12 +128,12 @@ if __name__ == "__main__":
 
 
     # ops = [kernelGen(arg_shape, s) for s in scales]
-    # print([op.lipschitz() for op in ops])
-    # print([op.lipschitz(tight=True) for op in ops])
+    # print([op.estimate_lipschitz(method='svd', ) for op in ops])
+    # print([op.estimate_lipschitz(method='svd') for op in ops])
     # print([op.shape for op in ops])
     # res = pxop.stack(ops, axis=1)
-    # print(res.lipschitz())
-    # print(res.lipschitz(tight=True))
+    # print(res.estimate_lipschitz(method='svd', ))
+    # print(res.estimate_lipschitz(method='svd'))
     # offsets = res._block_offset
 
     kOp = stackedKernels(arg_shape, scales, n_supp=2, tight_lipschitz=False, verbose=True)

@@ -301,7 +301,7 @@ if __name__ == "__main__":
                                   bias_list=scale_bias)
     forwardOp = measOp * skernels
     start = time.time()
-    fOp_lipschitz = forwardOp.lipschitz(tight=True, tol=1.)
+    fOp_lipschitz = forwardOp.estimate_lipschitz(method='svd', tol=1.)
     lipschitz_time = time.time() - start
     print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)".format(lipschitz_time))
 

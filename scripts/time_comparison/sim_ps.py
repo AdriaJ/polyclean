@@ -284,7 +284,7 @@ if __name__ == "__main__":
                                       nufft_eps=lasso_params['nufft_eps'],
                                       chunked=lasso_params['chunked'])  # todo: when do I need to chunk ? At worst it only gives a bad lipschitz cmputation time
         start = time.time()
-        fOp_lipschitz = forwardOp.lipschitz(tol=1., tight=True)
+        fOp_lipschitz = forwardOp.estimate_lipschitz(method='svd', tol=1.)
         lips_durations.append(lips_time := time.time() - start)
         print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)".format(lips_time))
 
@@ -297,7 +297,7 @@ if __name__ == "__main__":
         #                               nufft_eps=lasso_params['nufft_eps'],
         #                               chunked=True)
         # start = time.time()
-        # fOp_lipschitz = forwardOp.lipschitz(tol=1., tight=True)
+        # fOp_lipschitz = forwardOp.estimate_lipschitz(method='svd', tol=1.)
         # lips_durations.append(lips_time := time.time() - start)
         # print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)".format(lips_time))
         # print(fOp_lipschitz)
