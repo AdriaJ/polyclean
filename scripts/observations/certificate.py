@@ -6,7 +6,6 @@ import datetime as dt
 import numpy as np
 import time
 
-import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
@@ -28,7 +27,7 @@ from ska_sdp_datamodels.sky_model import SkyComponent
 
 
 
-matplotlib.use("Qt5Agg")
+# matplotlib.use("Qt5Agg")
 
 nantennas = 28
 ntimes = 5
