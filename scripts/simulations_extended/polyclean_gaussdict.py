@@ -27,11 +27,10 @@ import pyxu.opt.solver as pxsol
 import pyxu.info.ptype as pxt
 import pyxu.util.complex as pxc
 
-import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as mplc
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-matplotlib.use("Qt5Agg")
+# matplotlib.use("Qt5Agg")
 
 
 
