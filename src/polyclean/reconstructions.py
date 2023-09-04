@@ -188,7 +188,7 @@ def reco_apgd(
                                   uvwlambda,
                                   apgd_parameters["nufft_eps"])
     data_fid_synth = 0.5 * pxop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-data) * forwardOp
-    regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, None))
+    regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, forwardOp.shape[1]))
     apgd = pxsol.PGD(data_fid_synth, regul_synth, show_progress=False)
     print("APGD: Solving ...")
     start = time.time()

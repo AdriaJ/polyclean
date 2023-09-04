@@ -133,7 +133,7 @@ if __name__ == "__main__":
             "tau": 1 / (fOp_lipschitz ** 2)
         }
         data_fid_synth = 0.5 * pxop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
-        regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, None))
+        regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, forwardOp.shape[1]))
         apgd = pxsol.PGD(data_fid_synth, regul_synth, show_progress=False)
         print("APGD: Solving ...")
         start = time.time()
