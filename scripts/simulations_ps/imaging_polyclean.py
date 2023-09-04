@@ -16,9 +16,8 @@ import polyclean.reconstructions as reco
 import polyclean.image_utils as ut
 import polyclean.polyclean as pc
 
-import matplotlib
 
-matplotlib.use("Qt5Agg")
+# matplotlib.use("Qt5Agg")
 
 seed = 64  # np.random.randint(0, 1000)  # np.random.randint(0, 1000)  # 492
 rmax = 900.  # 2000.

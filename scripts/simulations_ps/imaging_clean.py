@@ -24,9 +24,8 @@ from polyclean.clean_utils import mjCLEAN
 
 import pyxu.util.complex as pxc
 
-import matplotlib
 
-matplotlib.use("Qt5Agg")
+# matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 
 plt.rc('text', usetex=False)
@@ -63,8 +62,8 @@ if __name__ == "__main__":
 
     ### Simulation of the source
 
-    frequency = np.array([1e8])
-    channel_bandwidth = np.array([1e6])
+    frequency = np.array([1.e+8])
+    channel_bandwidth = np.array([1.e+6])
     phasecentre = SkyCoord(
         ra=+15.0 * u.deg, dec=-45.0 * u.deg, frame="icrs", equinox="J2000"
     )
@@ -75,8 +74,8 @@ if __name__ == "__main__":
                                            flux_sigma=.8,
                                            radius_rate=.9,
                                            phasecentre=phasecentre,
-                                           frequency=frequency,
-                                           channel_bandwidth=channel_bandwidth,
+                                           frequency=frequency[0],
+                                           channel_bandwidth=channel_bandwidth[0],
                                            seed=seed)
     # parametrisation of the image
     directions = SkyCoord(

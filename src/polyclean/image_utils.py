@@ -32,10 +32,14 @@ def generate_point_sources(npoints: int,
                            flux_sigma: float = .4,
                            radius_rate: float = .9,
                            phasecentre=DEFAULT_PHASECENTER,
-                           frequency=np.array([1e8]),
-                           channel_bandwidth=np.array([1e6]),
+                           frequency=1.e+8,
+                           channel_bandwidth=1.e+6,
                            seed: int = None,
                            ):
+    if isinstance(frequency, np.ndarray):
+        frequency = frequency[0]
+    if isinstance(channel_bandwidth, np.ndarray):
+        channel_bandwidth = channel_bandwidth[0]
     fov = fov_deg * np.pi / 180
     cellsize = fov / npixel
     radius = radius_rate * fov

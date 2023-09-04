@@ -3,8 +3,7 @@ import sys
 import pickle
 import os
 
-import matplotlib
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import matplotlib.colors as mplc
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
@@ -26,7 +25,7 @@ from ska_sdp_datamodels.science_data_model.polarisation_model import Polarisatio
 from ska_sdp_datamodels.visibility.vis_utils import generate_baselines
 from ska_sdp_datamodels.sky_model import SkyComponent
 
-matplotlib.use("Qt5Agg")
+# matplotlib.use("Qt5Agg")
 
 nantennas = 28
 ntimes = 50
@@ -49,7 +48,7 @@ lock = False
 diagnostics = True
 log_diagnostics = False
 
-save = True
+save = False
 
 
 def truncate_colormap(cmap, minval, maxval, n=100):

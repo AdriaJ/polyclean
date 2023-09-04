@@ -3,7 +3,6 @@ import sys
 import pickle
 import os
 
-import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import numpy as np
@@ -23,7 +22,7 @@ from ska_sdp_datamodels.visibility.vis_utils import generate_baselines
 
 from polyclean.clean_utils import mjCLEAN
 
-matplotlib.use("Qt5Agg")
+# matplotlib.use("Qt5Agg")
 
 nantennas = 28
 ntimes = 50

@@ -4,7 +4,6 @@ Test imaging using MS file provided by RASCIL.
 import logging
 import sys
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import time
@@ -26,7 +25,7 @@ from ska_sdp_func_python.image import (
 )
 from ska_sdp_func_python.util import skycoord_to_lmn
 
-matplotlib.use("Qt5Agg")
+# matplotlib.use("Qt5Agg")
 
 context = "ng"
 filename2 = "3C277.1C.16channels.ms"  # 2498 times, 21 baselines, 16 channels, 1 polarization "I"

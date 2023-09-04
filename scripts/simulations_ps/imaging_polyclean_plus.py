@@ -15,8 +15,7 @@ import polyclean.polyclean as pc
 import pyxu.operator as pxop
 import pyxu.opt.solver as pxsol
 
-import matplotlib
-matplotlib.use("Qt5Agg")
+# matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 
 

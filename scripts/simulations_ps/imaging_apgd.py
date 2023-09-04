@@ -21,8 +21,7 @@ import polyclean.reconstructions as reco
 import polyclean.image_utils as ut
 import polyclean.polyclean as pc
 
-import matplotlib
-matplotlib.use("Qt5Agg")
+# matplotlib.use("Qt5Agg")
 
 
 seed = 64  # np.random.randint(0, 1000)  # np.random.randint(0, 1000)  # 492
@@ -118,7 +117,7 @@ if __name__ == "__main__":
 
     # Solving
     data_fid_synth = 0.5 * pxop.SquaredL2Norm(dim=forwardOp.shape[0]).argshift(-measurements) * forwardOp
-    regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, None))
+    regul_synth = lambda_ * pyfwl.L1NormPositivityConstraint(shape=(1, forwardOp.shape[1]))
     apgd = pxsol.PGD(data_fid_synth, regul_synth, show_progress=False)
     print("APGD: Solving ...")
     start = time.time()
