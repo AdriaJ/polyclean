@@ -164,6 +164,10 @@ def generate_point_sources(nsources: int,
                            channel_bandwidth=np.array([1e6]),
                            seed: int = None,
                            ):
+    if isinstance(frequency, np.ndarray):
+        frequency = frequency[0]
+    if isinstance(channel_bandwidth, np.ndarray):
+        channel_bandwidth = channel_bandwidth[0]
     fov = fov_deg * np.pi / 180
     cellsize = fov / npixel
     radius = radius_rate * fov
