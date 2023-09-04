@@ -3,7 +3,6 @@ import sys
 import pickle
 import os
 
-import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import numpy as np
