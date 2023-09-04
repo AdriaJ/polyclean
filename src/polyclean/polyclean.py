@@ -149,6 +149,7 @@ class MonoFW(_RALassoHvoxImager, pyfwl.VFWLasso):
             show_progress=show_progress,
         )
 
+
 def generatorVisOp(direction_cosines: pxt.NDArray,
                    vlambda: pxt.NDArray,
                    nufft_eps: float = 1e-3,
@@ -176,10 +177,10 @@ def generatorVisOp(direction_cosines: pxt.NDArray,
         nufft_eps = 0.
 
     op = pxop.NUFFT.type3(x=direction_cosines, z=2 * np.pi * vlambda, real=True, isign=-1, eps=nufft_eps,
-                           chunked=chunked,
-                           parallel=chunked,
-                           enable_warnings=False,
-                           )
+                          chunked=chunked,
+                          parallel=chunked,
+                          enable_warnings=False,
+                          )
     if chunked:
         x_chunks, z_chunks = op.auto_chunk(max_mem=max_mem)
         op.allocate(x_chunks, z_chunks, direct_eval_threshold=direct_eval_threshold)
@@ -208,6 +209,7 @@ def stop_crit(tmax: float,
     else:
         stop_crit = pxos.AbsError(eps=value, var="objective_func")
     return (stop_crit & min_iter_stop) | duration_stop
+
 
 # import polyclean.image_utils as ut
 #
