@@ -1,6 +1,7 @@
 """
 Open the two dataframes and load them as pd.DataFrame objects.
 """
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import use
@@ -8,15 +9,18 @@ import yaml
 
 from fill_df import load_dfs
 
-use("Qt5Agg")
+# use("Qt5Agg")
 
 df_dir_path = 'archive'
+
+exp_name = '6reps_server'  # '2reps_local'
 
 if __name__ == "__main__":
     with open('config.yaml', 'r') as config_file:
         config = yaml.safe_load(config_file)
+    time_factor = config['monofw_params']['max_time_factor']
 
-    metrics_df, props_df = load_dfs(df_dir_path=df_dir_path)
+    metrics_df, props_df = load_dfs(df_dir_path=df_dir_path, filenames=[n + exp_name + '.csv' for n in ['metrics_', 'props_']])
 
     # metrics_df.loc[:, ('apgd', 'objf')] = metrics_df['apgd']['objf'].apply(lambda x: x[1:-1]).astype(float).values
     # metrics_df.loc[:, ('monofw', 'objf')] = metrics_df.loc[:, ('monofw', 'objf')].apply(lambda x: x[1:-1]).astype(float)
@@ -35,11 +39,25 @@ if __name__ == "__main__":
     ax = plt.gca()
     time.plot(x='rmax', y=['wsclean', 'pclean', 'apgd', 'monofw', 'lips_t'], ax=ax, logy=logy,
               style=['x', '+', 'o', 'o', 'd'], xticks=time['rmax'].values, grid=True)
-    ax.scatter(time['rmax'], config['monofw_params']['max_time_factor'] * time['pclean'], marker='1', color='k',
+    ax.scatter(time['rmax'], time_factor * time['pclean'], marker='1', color='k',
                label='time limit', s=100)
     ax.set_ylabel('time (s)')
     ax.set_title("Time comparison")
     plt.show()
+
+    # same without Lipschitz
+    logy = True
+    plt.figure(figsize=(10, 10))
+    ax = plt.gca()
+    time.plot(x='rmax', y=['wsclean', 'pclean', 'apgd', 'monofw'], ax=ax, logy=logy,
+              style=['x', '+', 'o', 'o'], xticks=time['rmax'].values, grid=True)
+    ax.scatter(time['rmax'], time_factor * time['pclean'], marker='1', color='k',
+               label='time limit', s=100)
+    ax.set_ylabel('time (s)')
+    ax.set_title("Time comparison")
+    plt.show()
+    plt.savefig(os.path.join(df_dir_path, "time_comparison.png"))
+
 
     # do the same plots for the other metrics
     plt.figure(figsize=(10, 10))

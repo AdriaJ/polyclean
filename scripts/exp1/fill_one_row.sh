@@ -2,7 +2,7 @@
 # Fill one row in the dataframe
 
 # Simulate the problem and save ms file: Python
-#       -> save noisy ms file and ground truth source image + npix and seed
+#       -> save noisy ms file and ground truth source image + npix and seed + nvis
 #       -> Creates: data.ms, gtimage.pkl, rmax_npix_seed.pkl (dict), ws_args.txt (npix and cellsize on two lines)
 # Run the LASSO solvers: Python
 #       -> Open the ms file and perform the reconstruction, encapsulate everything in functions

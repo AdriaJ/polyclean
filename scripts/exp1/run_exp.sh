@@ -2,7 +2,7 @@
 # Fill the dataframes rows
 # Repeat each experiment nreps times
 
-rmax=(300) # (300 600 900 1200 1500 2000 3000)
+rmax=(300) # (300 600 900 1200 1500 2000 3000 6000)
 nreps=1
 save="true"
 

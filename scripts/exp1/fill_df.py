@@ -7,14 +7,16 @@ PROPS_FILE_NAME = 'props.csv'
 TMP_DATA_DIR = 'tmpdir'
 
 
-def load_dfs(df_dir_path=None):
+def load_dfs(df_dir_path=None, filenames=None):
     """
     Open the two dataframes and load them as pd.DataFrame objects.
     """
+    if filenames is None:
+        filenames = [METRICS_FILE_NAME, PROPS_FILE_NAME]
     if df_dir_path is None:
         df_dir_path = os.getcwd()
-    metrics_path = os.path.join(df_dir_path, METRICS_FILE_NAME)
-    props_path = os.path.join(df_dir_path, PROPS_FILE_NAME)
+    metrics_path = os.path.join(df_dir_path, filenames[0])
+    props_path = os.path.join(df_dir_path, filenames[1])
     if os.path.exists(metrics_path):
         # assumes that if one exists, the other exists as well
         metrics_df = pd.read_csv(metrics_path, header=[0,1])
@@ -24,7 +26,7 @@ def load_dfs(df_dir_path=None):
                      ['time', 'mse', 'mad', 'objf', 'dcv']]
         columns = pd.MultiIndex.from_product(iterables, names=['methods', 'metrics'])
         metrics_df = pd.DataFrame(columns=columns)
-        props_df = pd.DataFrame(columns=['rmax', 'npix', 'seed', 'lips_t'])
+        props_df = pd.DataFrame(columns=['rmax', 'npix', 'nvis', 'seed', 'lips_t'])
     return metrics_df, props_df
 
 

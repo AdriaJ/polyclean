@@ -85,7 +85,7 @@ if __name__ == "__main__":
     with open(os.path.join(TMP_DATA_DIR, 'gtimage.pkl'), 'wb') as file:
         pickle.dump(sky_im, file)
     with open(os.path.join(TMP_DATA_DIR, 'rmax_npix_seed.pkl'), 'wb') as file:
-        pickle.dump({'rmax': rmax, 'npix': npix, 'seed': seed}, file)
+        pickle.dump({'rmax': rmax, 'npix': npix, 'nvis': vt.weight.data.sum().astype(int), 'seed': seed}, file)
     with open(os.path.join(TMP_DATA_DIR, 'ws_args.txt'), 'w') as file:
         file.write(f"{npix:d}" + '\n')
         file.write(f"{config['ra_config']['fov_deg']/npix:.9f}")
