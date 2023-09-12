@@ -23,7 +23,7 @@ pclean_params:
 monofw_params:
     step_size: 'optimal'
     show_progress: False
-    max_time_factor: 10
+    max_time_factor: 50
 clean_params:
 #    n_minor: 10_000
 #    n_major: 5
