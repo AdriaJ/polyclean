@@ -31,5 +31,6 @@ clean_params:
     context: 'ng'
 #    algorithm: hogbom
 dict_keys:
-    methods: ['wsclean', 'pclean', 'monofw', 'apgd']
+    methods: ['wsclean', 'pclean', 'apgd']
+# , 'monofw'
     metrics: ['time', 'mse', 'mad', 'objf', 'dcv']
