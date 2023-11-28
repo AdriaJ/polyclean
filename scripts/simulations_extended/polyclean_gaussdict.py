@@ -124,35 +124,6 @@ def truncate_colormap(cmap, minval, maxval, n=100):
         cmap(np.linspace(minval, maxval, n)))
     return new_cmap
 
-
-def plot_1_image(image, title="", cmaps=['hot', 'Greys'], alpha=1., offset_cm=0., symm=True):
-    arr = image.pixels.data[0, 0]
-
-    fig = plt.figure(figsize=(12, 10))
-    ax = fig.subplots(1, 1, subplot_kw={'projection': image.image_acc.wcs.sub([1, 2]), 'frameon': False})
-    ax.set_xlabel(image.image_acc.wcs.wcs.ctype[0])
-    ax.set_ylabel(image.image_acc.wcs.wcs.ctype[1])
-    vlim = -arr.min() if symm else 0.
-    mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
-    mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
-    cmapc = truncate_colormap(cmaps[0], offset_cm, 1.)
-    aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapc, interpolation='none', alpha=alpha,
-                      norm=mplc.PowerNorm(gamma=0.5, vmin=vlim, vmax=1. * mask_comp.max()))
-    cmapr = truncate_colormap(cmaps[1], 0., 1 - offset_cm)
-    aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha,
-                      cmap=cmapr, norm='linear', vmin=mask_res.min(), vmax=vlim)
-    # norm=symm_sqrt_norm(-vlim, vlim))
-    axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
-    cbc = fig.colorbar(aximc, cax=axinsc,
-                       orientation="vertical", ticks=[round(vlim) + 1, 500, 1000, 2000, 3000, 4000])
-    axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
-    cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
-    fig.suptitle(title)
-    plt.subplots_adjust(top=0.92, bottom=0.08, left=0.0, right=0.93, hspace=0.15, wspace=0.15)
-    fig.show()
-
-
-
 def plot_3_images(
         im_list,
         title_list,
@@ -683,3 +654,43 @@ if __name__ == "__main__":
     print("\tComponents restored sharp: MSE {:.2e}, MAD {:.2e}".format(ut.MSE(m31_convolved, convolved_res[-1]),
                                                                        ut.MAD(m31_convolved, convolved_res[-1])))
     print("\tTotal weight: {:.2f}/{:.2f}".format(clean_comp.pixels.data.sum(), m31image.pixels.data.sum()))
+
+
+    if save:
+        from scripts.observations.pclean import truncate_colormap
+        def plot_1_image(image, title="", cmaps=['hot', 'Greys'], alpha=.95, offset_cm=0., symm=True, ticks=None, vlim=None):
+            if ticks is None:
+                ticks = [1, 500, 1000, 2000, 3000, 4000]
+            arr = image.pixels.data[0, 0]
+
+            fig = plt.figure(figsize=(12, 10))
+            ax = fig.subplots(1, 1, subplot_kw={'projection': image.image_acc.wcs.sub([1, 2]), 'frameon': False})
+            ax.set_xlabel(image.image_acc.wcs.wcs.ctype[0])
+            ax.set_ylabel(image.image_acc.wcs.wcs.ctype[1])
+            if vlim is None:
+                vlim = -arr.min() if symm else 0.
+            mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
+            mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
+            cmapc = truncate_colormap(cmaps[0], offset_cm, 1.)
+            aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapc, interpolation='none', alpha=alpha,
+                              norm=mplc.PowerNorm(gamma=1., vmin=vlim, vmax=1. * mask_comp.max()))
+            cmapr = truncate_colormap(cmaps[1], 0., 1 - offset_cm)
+            aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha,
+                              cmap=cmapr, norm='linear', vmin=-vlim, vmax=vlim)
+            # norm=symm_sqrt_norm(-vlim, vlim))
+            axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
+            cbc = fig.colorbar(aximc, cax=axinsc,
+                               orientation="vertical", ticks=[round(11 * vlim)/10] + ticks)
+            axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
+            cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
+            fig.suptitle(title)
+            plt.subplots_adjust(top=0.92, bottom=0.08, left=0.0, right=0.93, hspace=0.15, wspace=0.15)
+            fig.show()
+
+        folder_path = "/home/jarret/PycharmProjects/polyclean/figures/ext_sources/setup1"
+
+        plot_1_image(cropped_dirty, title="Dirty image", ticks=[10, 15, 20, 25])
+        plt.savefig(folder_path + "/dirty.png")
+
+        plot_1_image(m31image, vlim=0.3, title="Source", ticks=[0.5, 0.8, 1.])
+        plt.savefig(folder_path + "/source.png")

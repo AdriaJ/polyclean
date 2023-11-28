@@ -78,5 +78,3 @@ rm -r -d tmpdir
 #mkdir -p archive
 #mv --backup=t props.csv archive/props.csv
 #mv --backup=t metrics.csv archive/metrics.csv
-
-#todo update with Pyxu and the new lipschitz api

@@ -219,3 +219,8 @@ if __name__ == "__main__":
         im.image_acc.export_to_fits(folder + filename)
     sky_im.image_acc.export_to_fits(folder + 'sky-image.fits')
 
+    ut.myplot_uvcoverage(predicted_visi, title="UV coverage")
+
+    import polyclean.ra_utils as pcrau
+    npix = pcrau.get_npixels(vt, fov_deg, phasecentre, 1e-3)
+    pcrau.get_nmodes(vt, 1e-3, phasecentre=phasecentre, fov=fov_deg, upsampfac=1.25)

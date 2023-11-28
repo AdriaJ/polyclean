@@ -552,6 +552,7 @@ def myplot_uvcoverage(vis, title="UV coverage"):
     :param kwargs:
     :return:
     """
+    plt.figure()
     gvis = vis.where(vis["flags"] == 0)
     bvis = vis.where(vis["flags"] > 0)
     u = np.array(gvis.visibility_acc.uvw_lambda.reshape((-1, 3))[..., 0].flat)

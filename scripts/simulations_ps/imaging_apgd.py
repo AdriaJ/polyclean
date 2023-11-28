@@ -25,10 +25,10 @@ import polyclean.polyclean as pc
 
 
 seed = 64  # np.random.randint(0, 1000)  # np.random.randint(0, 1000)  # 492
-rmax = 800.  # 2000.
+rmax = 300.  # 2000.
 times = (np.arange(7)-3) * np.pi/9  # 7 angles from -pi/3 to pi/3
 fov_deg = 5
-npixel = 1024  # 512  # 384 #  128 * 2
+npixel = 512  # 512  # 384 #  128 * 2
 npoints = 200
 nufft_eps = 1e-3
 psnrdb = 20

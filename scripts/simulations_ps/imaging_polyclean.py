@@ -20,10 +20,10 @@ import polyclean.polyclean as pc
 # matplotlib.use("Qt5Agg")
 
 seed = 64  # np.random.randint(0, 1000)  # np.random.randint(0, 1000)  # 492
-rmax = 900.  # 2000.
+rmax = 300.  # 2000.
 times = (np.arange(7) - 3) * np.pi / 9  # 7 angles from -pi/3 to pi/3
 fov_deg = 5
-npixel = 1920  # 512  # 384 #  128 * 2
+npixel = 720  # 512  # 384 #  128 * 2
 npoints = 200
 nufft_eps = 1e-3
 chunked = False
@@ -216,3 +216,37 @@ if __name__ == "__main__":
     # plt.figure()
     # plt.hist(fluxs, bins=50)
     # plt.show()
+
+    from scripts.observations.pclean import plot_1_image
+    sharp_beam = clean_beam.copy()
+    sharp_beam["bmin"] = clean_beam["bmin"] / 10
+    sharp_beam["bmaj"] = clean_beam["bmaj"] / 10
+    test_sky_im = restore_cube(sky_im, None, None, sharp_beam)
+    # test_sky_im['pixels'].data = 1000 * test_sky_im['pixels'].data
+
+    def plot_1_image(image, title="", cmaps=['hot', 'Greys'], alpha=.95, offset_cm=0., symm=True):
+        from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+        import matplotlib.colors as mplc
+        arr = image.pixels.data[0, 0]
+
+        fig = plt.figure(figsize=(12, 10))
+        ax = fig.subplots(1, 1, subplot_kw={'projection': image.image_acc.wcs.sub([1, 2]), 'frameon': False})
+        ax.set_xlabel(image.image_acc.wcs.wcs.ctype[0])
+        ax.set_ylabel(image.image_acc.wcs.wcs.ctype[1])
+        # vlim = -arr.min() if symm else 0.
+        # mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
+        aximc = ax.imshow(arr, origin="lower", cmap='hot', interpolation='none', alpha=alpha,
+                          norm=mplc.PowerNorm(gamma=0.5, vmin=0., vmax=None))
+        axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
+        cbc = fig.colorbar(aximc, cax=axinsc, orientation="vertical")  # , ticks=[round(0) + 1, 500, 1000, 2000, 3000, 4000])
+        fig.suptitle(title)
+        plt.subplots_adjust(top=0.92, bottom=0.08, left=0.0, right=0.93, hspace=0.15, wspace=0.15)
+        fig.show()
+
+    # plot_1_image(test_sky_im)
+    # import os
+    # folder_path = os.path.join("/home/jarret/PycharmProjects/polyclean/scripts/simulations_ps", 'source')
+    # # create a folder if it does not exist
+    # if not os.path.exists(folder_path):
+    #     os.makedirs(folder_path)
+    # plt.savefig(os.path.join(folder_path, 'source.png'))

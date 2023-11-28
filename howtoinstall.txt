@@ -3,17 +3,25 @@
 git clone git@github.com:AdriaJ/pyfw-lasso.git
 cd pyfw-lasso
 
-conda create --name pclean --strict-channel-priority --channel=conda-forge --file=conda/requirements.txt python=3.10
+conda create --name pclean-rascil --strict-channel-priority --channel=conda-forge --file=conda/requirements-rascil.txt python=3.10
 conda activate pclean
-
-# conda install -c conda-forge python-casacore
+# conda install -c conda-forge python-casacore  # Optional but probably helps for cleaner installation
 pip3 install --index-url=https://artefact.skao.int/repository/pypi-all/simple rascil
-
 pip install -e .
 
 # ------------------------------------------------
-
+# pclean-rascil
+conda create --name pclean-rascil --strict-channel-priority --channel=conda-forge --file=conda/requirements-rascil.txt python=3.10
+conda activate pclean-rascil
 cd src/
+git clone https://gitlab.com/ska-telescope/external/rascil-main.git
+cd rascil-main
+make install_requirements
+cd ../..
+pip install -e .
+conda list | grep rascil
+conda list | grep pyxu
+
 
 # Rascil
 git clone https://gitlab.com/ska-telescope/external/rascil-main.git
