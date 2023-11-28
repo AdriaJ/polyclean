@@ -22,7 +22,7 @@ def load_dfs(df_dir_path=None, filenames=None):
         metrics_df = pd.read_csv(metrics_path, header=[0,1])
         props_df = pd.read_csv(props_path)
     else:
-        iterables = [['wsclean', 'pclean', 'monofw', 'apgd'],  # 'pclean-ng' to consider one day maybe
+        iterables = [['wsclean', 'pclean', 'apgd'],  # 'pclean-ng' to consider one day maybe, 'monofw' removed
                      ['time', 'mse', 'mad', 'objf', 'dcv']]
         columns = pd.MultiIndex.from_product(iterables, names=['methods', 'metrics'])
         metrics_df = pd.DataFrame(columns=columns)

@@ -163,46 +163,47 @@ if __name__ == "__main__":
     res_apgd = solve_apgd(save_images)
 
     # Monoatomic FW
-    def res_monofw(save_im):
-        monofw = pc.MonoFW(
-            data=measurements,
-            uvwlambda=flagged_uvwlambda,
-            direction_cosines=direction_cosines,
-            lambda_=lambda_,
-            chunked=config['lasso_params']['chunked'],
-            nufft_eps=config['lasso_params']['nufft_eps'],
-            **config['monofw_params']
-        )
-        print("Monoatomic FW: Solving ...")
-        start = time.time()
-        monofw.fit(stop_crit=pc.stop_crit(config['monofw_params']['max_time_factor'] * dt_pclean, config['lasso_params']['min_iter'], config['lasso_params']['eps'],
-                                            value=hist_pc["Memorize[objective_func]"][-1]))
-        print("\tSolved in {:.3f} seconds".format(dt_monofw := time.time() - start))
-        sol_monofw, _ = monofw.stats()
-        monofw_residual = forwardOp.adjoint(measurements - forwardOp(sol_monofw["x"]))
-        dcv_monofw = abs(monofw_residual).max() / lambda_
-        monofw_comp = image_model.copy(deep=True)
-        monofw_comp.pixels.data[0, 0] = sol_monofw["x"].reshape((npix,) * 2)
+    # def res_monofw(save_im):
+    #     monofw = pc.MonoFW(
+    #         data=measurements,
+    #         uvwlambda=flagged_uvwlambda,
+    #         direction_cosines=direction_cosines,
+    #         lambda_=lambda_,
+    #         chunked=config['lasso_params']['chunked'],
+    #         nufft_eps=config['lasso_params']['nufft_eps'],
+    #         **config['monofw_params']
+    #     )
+    #     print("Monoatomic FW: Solving ...")
+    #     start = time.time()
+    #     monofw.fit(stop_crit=pc.stop_crit(config['monofw_params']['max_time_factor'] * dt_pclean, config['lasso_params']['min_iter'], config['lasso_params']['eps'],
+    #                                         value=hist_pc["Memorize[objective_func]"][-1]))
+    #     print("\tSolved in {:.3f} seconds".format(dt_monofw := time.time() - start))
+    #     sol_monofw, _ = monofw.stats()
+    #     monofw_residual = forwardOp.adjoint(measurements - forwardOp(sol_monofw["x"]))
+    #     dcv_monofw = abs(monofw_residual).max() / lambda_
+    #     monofw_comp = image_model.copy(deep=True)
+    #     monofw_comp.pixels.data[0, 0] = sol_monofw["x"].reshape((npix,) * 2)
+    #
+    #
+    #     restored_comp = restore_cube(monofw_comp, None, None, clean_beam=cb)
+    #     if save_im:
+    #         restored_comp.image_acc.export_to_fits(os.path.join(args.save_path, 'monofw_comp_restored.fits'))
+    #         monofw_residual_im = image_model.copy(deep=True)
+    #         monofw_residual_im.pixels.data = monofw_residual.reshape(monofw_residual_im.pixels.data.shape) / sum_vis
+    #         restored = restore_cube(monofw_comp, None, monofw_residual_im, clean_beam=cb)
+    #         restored.image_acc.export_to_fits(os.path.join(args.save_path, 'monofw_restored.fits'))
+    #     # compute mse and mad between restored comp and gt convolved
+    #     mse_monofw = ut.MSE(restored_comp, restored_sources)
+    #     mad_monofw = ut.MAD(restored_comp, restored_sources)
+    #
+    #     res_monofw = dict(zip(metrics, [dt_monofw, mse_monofw, mad_monofw, monofw.objective_func()[0], dcv_monofw]))
+    #
+    #     return res_monofw
 
+    # res_monofw = res_monofw(save_images)
 
-        restored_comp = restore_cube(monofw_comp, None, None, clean_beam=cb)
-        if save_im:
-            restored_comp.image_acc.export_to_fits(os.path.join(args.save_path, 'monofw_comp_restored.fits'))
-            monofw_residual_im = image_model.copy(deep=True)
-            monofw_residual_im.pixels.data = monofw_residual.reshape(monofw_residual_im.pixels.data.shape) / sum_vis
-            restored = restore_cube(monofw_comp, None, monofw_residual_im, clean_beam=cb)
-            restored.image_acc.export_to_fits(os.path.join(args.save_path, 'monofw_restored.fits'))
-        # compute mse and mad between restored comp and gt convolved
-        mse_monofw = ut.MSE(restored_comp, restored_sources)
-        mad_monofw = ut.MAD(restored_comp, restored_sources)
-
-        res_monofw = dict(zip(metrics, [dt_monofw, mse_monofw, mad_monofw, monofw.objective_func()[0], dcv_monofw]))
-
-        return res_monofw
-
-    res_monofw = res_monofw(save_images)
-
-    lasso_res = dict(zip(['pclean', 'apgd', 'monofw'], [res_pc, res_apgd, res_monofw]))
+    # lasso_res = dict(zip(['pclean', 'apgd', 'monofw'], [res_pc, res_apgd, res_monofw]))
+    lasso_res = dict(zip(['pclean', 'apgd'], [res_pc, res_apgd]))
 
     with open(os.path.join(TMP_DATA_DIR, 'lips_t.pkl'), 'wb') as file:
         pickle.dump({'lips_t': dt_lipschitz}, file)
