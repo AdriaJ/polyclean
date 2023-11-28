@@ -9,7 +9,9 @@ from ska_sdp_datamodels.image.image_create import create_image
 from ska_sdp_func_python.util import skycoord_to_lmn
 from ska_sdp_func_python.sky_component import insert_skycomponent
 
-import pyxu.operator.linop as pxl
+import pyxu.operator as pxop
+import pyxu.info.ptype as pxt
+import polyclean.kernels as pck
 
 __all__ = [
     "generate_point_sources",
@@ -17,9 +19,12 @@ __all__ = [
     "image_add_ra_dec_grid"
 ]
 
+import polyclean
+
 DEFAULT_PHASECENTER = SkyCoord(
     ra=+15.0 * u.deg, dec=-45.0 * u.deg, frame="icrs", equinox="J2000"
 )
+
 
 def get_npixels(vt, fov, phasecentre, epsilon):
     nmodes = get_nmodes(vt, epsilon, phasecentre=phasecentre, fov=fov, upsampfac=2)[0]
@@ -65,7 +70,7 @@ def get_nmodes(vt, epsilon, phasecentre=None, fov=None, direction_cosines=None, 
             skycoord_to_lmn(urc, phasecentre),
             skycoord_to_lmn(phasecentre, phasecentre),
         )
-        nufft = pxl.NUFFT.type3(
+        nufft = pxop.NUFFT.type3(
             x=np.array(lmn),
             z=2 * np.pi * vt.visibility_acc.uvw_lambda.reshape(-1, 3),
             real=True,
@@ -78,7 +83,7 @@ def get_nmodes(vt, epsilon, phasecentre=None, fov=None, direction_cosines=None, 
         return nufft._fft_shape(), None, None
 
     elif (fov is None) and (direction_cosines is not None):
-        nufft = pxl.NUFFT.type3(
+        nufft = pxop.NUFFT.type3(
             x=direction_cosines,
             z=2 * np.pi * vt.visibility_acc.uvw_lambda.reshape(-1, 3),
             real=True,
@@ -96,6 +101,7 @@ def get_nmodes(vt, epsilon, phasecentre=None, fov=None, direction_cosines=None, 
     else:
         raise NotImplementedError
 
+
 def image_add_ra_dec_grid(im):
     """Add ra, dec coordinates"""
     _, _, ny, nx = im["pixels"].shape
@@ -107,6 +113,7 @@ def image_add_ra_dec_grid(im):
         ra_grid=(("x", "y"), ra_grid), dec_grid=(("x", "y"), dec_grid)
     )
     return im
+
 
 def image_wcs(ds):
     """
@@ -153,6 +160,7 @@ def image_wcs(ds):
         w.wcs.equinox = 2000.0
 
     return w
+
 
 def generate_point_sources(nsources: int,
                            fov_deg: float,
@@ -201,3 +209,39 @@ def generate_point_sources(nsources: int,
     insert_skycomponent(sky_im, sc, insert_method='Nearest')
     sky_im.pixels.data /= sky_im.pixels.data.max()
     return sky_im, sc
+
+
+class GaussPolyCLEAN(polyclean.PolyCLEAN):
+    def __init__(self,
+                 scales: list,
+                 kernel_bias: list = None,
+                 n_supp: int = 2,
+                 norm_kernels: int = 2,
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.kernel_bias = kernel_bias
+        npixel = int(np.sqrt(kwargs.get('direction_cosines').shape[0]))
+        self.kernels = pck.stackedKernels((npixel,) * 2, scales,
+                                          n_supp=n_supp,
+                                          tight_lipschitz=False,
+                                          verbose=True,
+                                          norm=norm_kernels,
+                                          bias_list=kernel_bias)
+        self.measOp = self.forwardOp
+        self.forwardOp = self.measOp * self.kernels
+
+    def rs_forwardOp(self, support_indices: pxt.NDArray) -> pxt.OpT:
+        if support_indices.size == 0:
+            return pxop.NullOp(shape=(self.forwardOp.shape[0], 0))
+        else:
+            tmp = np.zeros(self.kernels.shape[1])
+            tmp[support_indices] = 1.
+            supp = np.where(self.kernels(tmp) != 0)[0]
+            ss = pxop.SubSample(self.kernels.shape[0], supp)
+            op = polyclean.generatorVisOp(self._direction_cosines[supp, :],
+                                          self._uvw,
+                                          self._nufft_eps,
+                                          chunked=self._chunked,
+                                          )
+            injection = pxop.SubSample(self.kernels.shape[1], support_indices).T
+            return op * ss * self.kernels * injection
