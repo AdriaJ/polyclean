@@ -57,3 +57,5 @@ if __name__ == "__main__":
                 os.makedirs(folder_path)
             with open(os.path.join(folder_path, "restored.pkl"), 'wb') as handle:
                 pickle.dump(ws_restored, handle)
+
+    os.system(f"rm -rd wsclean-dir")
