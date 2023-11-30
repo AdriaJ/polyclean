@@ -6,7 +6,7 @@ Code to run the experiment of the section 6.1 in the article.
 1. How to reproduce the results?
 --------------------------------
 
-In order to launch the computations, you need to run the following commands::
+To launch the computations, you need to run the following commands::
 
     > cd scripts/benchmark
     > ./run_exp.sh
