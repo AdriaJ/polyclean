@@ -1,11 +1,9 @@
-# load the 7 images from the pkl files in this directory
+# load the 7 images from the pkl files and reproduce the plot of section 6.2
 import pickle
 import os
 
-import matplotlib.colorbar
 import numpy as np
 
-import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.colors as mplc
 
@@ -18,7 +16,6 @@ def truncate_colormap(cmap, minval, maxval, n=100):
         'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
         cmap(np.linspace(minval, maxval, n)))
     return new_cmap
-
 
 def plot_1_image(image, title="", cmaps=['hot', 'Greys'], alpha=.95, offset_cm=0., symm=True, ticks=None, vlim=None):
     if ticks is None:
@@ -56,7 +53,7 @@ if __name__ == "__main__":
     files_dir = ['0.05', 'autothresh3', '0.02', 'autothresh2', '0.005', 'autothresh1']
     images = []
     for f in files_dir:
-        with open(os.path.join(dir_path, 'restored.pkl'), 'rb') as file:
+        with open(os.path.join(dir_path, f, 'restored.pkl'), 'rb') as file:
             images.append(pickle.load(file))
     with open(os.path.join(os.getcwd(), 'dirty.pkl'), 'rb') as file:
         dirty_im = pickle.load(file)
@@ -75,22 +72,6 @@ if __name__ == "__main__":
     colors = np.vstack((colors2, colors1))
     mymap = mplc.LinearSegmentedColormap.from_list('my_colormap', colors)
 
-    fig = plt.figure(figsize=(10, 17))
-    axes = fig.subplots(3, 2, sharex=True, sharey=True,
-                        subplot_kw={'projection': images[0].image_acc.wcs.sub([1, 2]), 'frameon': False})
-    for i in range(len(files_dir)):
-        ax = axes.ravel()[i]
-        ims = ax.imshow(images[i].pixels.data[0,0], origin="lower", cmap=mymap, interpolation='none', alpha=alpha,
-                        norm=mplc.PowerNorm(gamma=1., vmin=-vlim, vmax=vmax))
-        # fig.colorbar()
-    # ax = fig.add_subplot(311)
-    cbar_ax = inset_axes(axes[0, 0], width="280%", height="10%", loc='upper left', borderpad=-5)
-    # cax, _ = matplotlib.colorbar.make_axes(axes, location='top', orientation='horizontal')
-    fig.colorbar(ims, cax=cbar_ax, orientation="horizontal", ticks=[-vlim, 0, vlim, 1000, 2000, 3000, 4000])
-    plt.show()
-
-    for im, f in zip(images, files_dir):
-        plot_1_image(im, title=f)
 
     fig = plt.figure(figsize=(10, 17))
     cmapp = truncate_colormap('hot', 0.05, 1.)
