@@ -131,3 +131,7 @@ dmypy.json
 # Rascil
 src/rascil-main/
 .idea/
+
+# Reconstruction storage directopries
+scripts/simulations_extended/article/reco_pkl
+scripts/simulations_extended/article/wsclean-dir
