@@ -26,9 +26,9 @@ DEFAULT_PHASECENTER = SkyCoord(
 )
 
 
-def get_npixels(vt, fov, phasecentre, epsilon):
+def get_npixels(vt, fov, phasecentre, epsilon, srf: int = 10):
     nmodes = get_nmodes(vt, epsilon, phasecentre=phasecentre, fov=fov, upsampfac=2)[0]
-    return max(nmodes[:2]) * 10
+    return max(nmodes[:2]) * srf
 
 
 def get_nmodes(vt, epsilon, phasecentre=None, fov=None, direction_cosines=None, upsampfac=2):
