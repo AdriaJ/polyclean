@@ -54,7 +54,8 @@ if __name__ == "__main__":
     )
 
     # side size of the image
-    npix = pcrau.get_npixels(vt, config['ra_config']['fov_deg'], phasecentre, config['lasso_params']['nufft_eps'])
+    npix = pcrau.get_npixels(vt, config['ra_config']['fov_deg'], phasecentre, config['lasso_params']['nufft_eps'],
+                             srf=config['ra_config']['srf'])
     print(f"number of pixels: {npix:d}")
 
     # simulation of a sky image

@@ -5,6 +5,7 @@ ra_config:
     fov_deg: 5.
     nsources: 200
     psnr_db: 20
+    srf: 10
 lasso_params:
     lambda_factor: 0.01
     nufft_eps: 1.e-3
