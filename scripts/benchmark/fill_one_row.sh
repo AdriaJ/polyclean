@@ -49,29 +49,32 @@ echo "Simulation for rmax = $rmax"
 mkdir -p tmpdir
 python simulate_pb.py --rmax "$rmax"
 if [ $save = "true" ]; then
-    echo "Saving..."
+    echo "Saving LASSO reconstructions..."
     save_dir="reconstructions/rmax_$rmax"
     mkdir -p $save_dir
-   python solve_lasso.py --save_path "$save_dir"  #todo test --save_path
+    python solve_lasso.py --save_path "$save_dir"
 else
-   python solve_lasso.py
+    python solve_lasso.py
 fi
 # load ws-clean parameters
 IFS=$'\n' read -r -d '' npix cellsize < tmpdir/ws_args.txt
 start_time="$(date -u +%s.%N)"
-wsclean -auto-threshold 1 -size "$npix" "$npix" -scale "$cellsize" -mgain 0.7 -niter 10000 -weight natural -name ws -quiet -no-dirty tmpdir/data.ms
+wsclean -auto-threshold 1 -size "$npix" "$npix" -scale "$cellsize" -mgain 0.7 -niter 10000 -weight natural -name ws -quiet tmpdir/data.ms
 end_time="$(date -u +%s.%N)"
 elapsed="$(bc <<<"$end_time-$start_time")"
 echo "Total of $elapsed seconds elapsed for wsclean"
 echo $elapsed > tmpdir/wsclean_time.txt
+mv ws-* tmpdir
 if [ $save = "true" ]; then
-    echo "Saving..."
+    echo "Saving WS-CLEAN reconstruction ..."
     save_dir="reconstructions/rmax_$rmax"
     mkdir -p $save_dir
-    cp ws-image.fits $save_dir
+    cp tmpdir/ws-image.fits $save_dir
+    cp tmpdir/ws-dirty.fits $save_dir
+    python pp_wsclean.py --save_path "$save_dir"
+else
+    python pp_wsclean.py
 fi
-mv ws-* tmpdir
-python pp_wsclean.py
 python fill_df.py
 rm -r -d tmpdir
 

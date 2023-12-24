@@ -12,16 +12,16 @@ from fill_df import load_dfs
 
 # use("Qt5Agg")
 
-df_dir_path = 'archive'
+df_dir_path = '/home/jarret/Downloads/res/srf1reps1_1'
 
 exp_name = '6reps_server2'  # '2reps_local'
 
 if __name__ == "__main__":
     with open('config.yaml', 'r') as config_file:
         config = yaml.safe_load(config_file)
-    time_factor = config['monofw_params']['max_time_factor']
+    # time_factor = config['monofw_params']['max_time_factor']
 
-    metrics_df, props_df = load_dfs(df_dir_path=df_dir_path, filenames=[n + exp_name + '.csv' for n in ['metrics_', 'props_']])
+    metrics_df, props_df = load_dfs(df_dir_path=df_dir_path,) # filenames=[n + exp_name + '.csv' for n in ['metrics_', 'props_']])
 
     # metrics_df.loc[:, ('apgd', 'objf')] = metrics_df['apgd']['objf'].apply(lambda x: x[1:-1]).astype(float).values
     # metrics_df.loc[:, ('monofw', 'objf')] = metrics_df.loc[:, ('monofw', 'objf')].apply(lambda x: x[1:-1]).astype(float)
@@ -85,7 +85,8 @@ if __name__ == "__main__":
     ### DCV ###
     plt.figure(figsize=(10, 10))
     ax = plt.gca()
-    dcv.plot(x='rmax', y=['pclean', 'apgd', 'monofw'], ax=ax, logy=False, style=['o', '+', 'x'], xticks=time['rmax'].values, grid=True)
+    # dcv.plot(x='rmax', y=['pclean', 'apgd', 'monofw'], ax=ax, logy=False, style=['o', '+', 'x'], xticks=time['rmax'].values, grid=True)
+    dcv.plot(x='rmax', y=['pclean', 'apgd'], ax=ax, logy=False, style=['o', '+'], xticks=time['rmax'].values, grid=True)
     ax.set_ylabel("Dual certificate value")
     ax.set_title("Dual certificate comparison")
     plt.show()
@@ -94,7 +95,7 @@ if __name__ == "__main__":
     plt.figure(figsize=(10, 10))
     ax = plt.gca()
     ax.scatter(objf['rmax'], (objf['apgd'] - objf['pclean'])/objf['pclean'], marker='x', label='apgd')
-    ax.scatter(objf['rmax'], (objf['monofw'] - objf['pclean'])/objf['pclean'], marker='+', label='monofw')
+    # ax.scatter(objf['rmax'], (objf['monofw'] - objf['pclean'])/objf['pclean'], marker='+', label='monofw')
     ax.set_ylabel("Objective function relative difference")
     ax.axhline(0, color='k', linestyle='--')
     ax.set_xticks(objf['rmax'].values)
@@ -136,8 +137,8 @@ if __name__ == "__main__":
         summary['lips_t'] = lips.reset_index()['lips_t']
         summary.rename(columns={'rmax': 'rmax (km)', 'npix': 'npix (side size)', 'nvis': 'nvis (k)', 'imsize_mpix': 'imsize (MPix)', 'lips_t': 'lipschitz time (s)'}, inplace=True)
         print(summary.to_latex(index=False, float_format='%.1f', formatters={'nvis (k)': lambda x: f"{x/1000:.1f}"}))
-        mse.drop(columns='monofw', inplace=True)
-        mad.drop(columns='monofw', inplace=True)
+        # mse.drop(columns='monofw', inplace=True)
+        # mad.drop(columns='monofw', inplace=True)
         mse = mse.groupby('rmax').median().reset_index()
         mse['rmax'] = mse.rmax.astype(int)
         print(mse.to_latex(index=False, float_format='%.2e'))

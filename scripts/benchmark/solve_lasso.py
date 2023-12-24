@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     measurements = pxc.view_as_real(predicted_visi.vis.data.reshape(-1)[flags_bool])
     sum_vis = measurements.shape[0] // 2
-    dirty_array = forwardOp.adjoint(measurements)  # 28s in chunked mode
+    dirty_array = forwardOp.adjoint(measurements)
     lambda_ = config['lasso_params']['lambda_factor'] * np.abs(dirty_array).max()
 
     # Prepare the convolved sky image for the computation of the metrics
