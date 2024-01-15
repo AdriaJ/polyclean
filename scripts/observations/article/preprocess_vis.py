@@ -24,8 +24,9 @@ if __name__ == "__main__":
     # Broken antennas: 12, 13, 16, 17, 47
     # Unusable baseline: (22, 23)
 
-    # import polyclean.image_utils as ut
-    # ut.myplot_uvcoverage(vis, title="Subsampled UV coverage")
+    import polyclean.image_utils as ut
+    ut.myplot_uvcoverage(vis, title="Subsampled UV coverage", show_non_valid=False)
+    # ut.myplot_uvcoverage(vis.isel({"time": slice(35, 36)}), show_non_valid=False)
 
     vis_path = os.path.join(os.getcwd(), vis_path)
     if not os.path.exists(vis_path):
