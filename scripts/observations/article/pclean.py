@@ -111,7 +111,7 @@ if __name__ == "__main__":
             lambda_=lambda_,
             **pclean_parameters,
         )
-        print(f"PolyCLEAN: Solving for lambda factor {factor:.2f} ...")
+        print(f"PolyCLEAN: Solving for lambda factor {factor:.3f} ...")
         pclean_time = time.time()
         pclean.fit(**fit_parameters)
         print("\tSolved in {:.3f} seconds".format(dt_pclean := time.time() - pclean_time))
@@ -146,3 +146,14 @@ if __name__ == "__main__":
         if do_sharp_beam:
             with open(os.path.join(folder_path, "restored_sharp.pkl"), 'wb') as handle:
                 pickle.dump(pclean_sharp, handle)
+
+    ### Cellsize
+    # Nominal resolution of the image
+    B = np.max(np.linalg.norm(uvwlambda, axis=1))
+    nominal_resolution = 1 / (B * 3)  # radians
+    # Used resolution
+    resolution = fov_deg / npixel * np.pi / 180  # radians
+    print("Nominal resolution: {:.3e} (rad)".format(nominal_resolution))
+    print(f"\tRequired pixels: {int(fov_deg * np.pi / 180 / nominal_resolution):d}")
+    print("Used resolution: {:.3e} (rad)".format(resolution))
+    print(f"Super resolution factor: {nominal_resolution / resolution:.2f}")
