@@ -100,6 +100,8 @@ if __name__ == "__main__":
     with open(os.path.join(os.getcwd(), "dirty.pkl"), 'wb') as handle:
         pickle.dump(dirty_image, handle)
 
+    durations = []
+
     for factor in lambda_factors:
         lambda_ = factor * np.abs(dirty_array).max()
 
@@ -115,6 +117,7 @@ if __name__ == "__main__":
         pclean_time = time.time()
         pclean.fit(**fit_parameters)
         print("\tSolved in {:.3f} seconds".format(dt_pclean := time.time() - pclean_time))
+        durations.append(dt_pclean)
         if diagnostics:
             pclean.diagnostics()
         data, hist = pclean.stats()
@@ -132,9 +135,10 @@ if __name__ == "__main__":
         pclean_residual_im = image_model.copy(deep=True)
         pclean_residual_im.pixels.data = pclean_residual.reshape(pclean_residual_im.pixels.data.shape) / sum_vis
         pclean_restored = restore_cube(pclean_comp, None, pclean_residual_im, clean_beam=clean_beam)
+        comp_restored = restore_cube(pclean_comp, None, None, clean_beam=clean_beam)
 
         if do_sharp_beam:
-            pclean_comp_sharp = restore_cube(pclean_comp, None, None, clean_beam=sharp_beam)
+            comp_restored_sharp = restore_cube(pclean_comp, None, None, clean_beam=sharp_beam)
             pclean_sharp = restore_cube(pclean_comp, None, pclean_residual_im, clean_beam=sharp_beam)
 
         ## Save the reconstructions
@@ -143,9 +147,15 @@ if __name__ == "__main__":
             os.makedirs(folder_path)
         with open(os.path.join(folder_path, "restored.pkl"), 'wb') as handle:
             pickle.dump(pclean_restored, handle)
+        with open(os.path.join(folder_path, "comp_restored.pkl"), 'wb') as handle:
+            pickle.dump(comp_restored, handle)
+        with open(os.path.join(folder_path, "model.pkl"), 'wb') as handle:
+            pickle.dump(pclean_comp, handle)
         if do_sharp_beam:
             with open(os.path.join(folder_path, "restored_sharp.pkl"), 'wb') as handle:
                 pickle.dump(pclean_sharp, handle)
+            with open(os.path.join(folder_path, "comp_restored_sharp.pkl"), 'wb') as handle:
+                pickle.dump(comp_restored_sharp, handle)
 
     ### Cellsize
     # Nominal resolution of the image
