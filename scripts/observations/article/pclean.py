@@ -151,6 +151,8 @@ if __name__ == "__main__":
             pickle.dump(comp_restored, handle)
         with open(os.path.join(folder_path, "model.pkl"), 'wb') as handle:
             pickle.dump(pclean_comp, handle)
+        with open(os.path.join(folder_path, "residual.pkl"), 'wb') as handle:
+            pickle.dump(pclean_residual_im, handle)
         if do_sharp_beam:
             with open(os.path.join(folder_path, "restored_sharp.pkl"), 'wb') as handle:
                 pickle.dump(pclean_sharp, handle)
