@@ -12,7 +12,8 @@ from fill_df import load_dfs
 
 # use("Qt5Agg")
 
-df_dir_path = '/home/jarret/Downloads/res/srf1reps1_1'
+df_dir_path = '/home/jarret/Downloads/res/srf10reps10'
+title = "SRF 2"
 
 exp_name = '6reps_server2'  # '2reps_local'
 
@@ -57,7 +58,7 @@ if __name__ == "__main__":
     side_size = props_df[['rmax', 'npix', 'nvis']].groupby('rmax').agg(lambda x: x.iloc[0])
     side_size['imsize_mpix'] = (side_size['npix'] ** 2) / 1.e+6
 
-    plt.figure(figsize=(10, 10))
+    fig = plt.figure(figsize=(8, 6))
     ax = plt.gca()
     ax.set_yscale('log')
     ax.set_xscale('log')
@@ -65,11 +66,14 @@ if __name__ == "__main__":
         ax.scatter(side_size.loc[meds.index]['imsize_mpix'], meds[c], marker='o', label=c, color=color)
         ax.fill_between(side_size.loc[meds.index]['imsize_mpix'], quart1[c], quart3[c], alpha=.2, color=color)
     ax.set_ylabel('time (s)')
-    ax.set_title("Time comparison")
+    # ax.set_title("Time comparison")
     ax.set_xlabel('Image size (MPix)')
+    labs = [f"{s:.2f}" if s <= 0.2 else f"{s:.1f}" for s in side_size.loc[meds.index]['imsize_mpix']]
+    labs[3] = ''
     ax.set_xticks(side_size.loc[meds.index]['imsize_mpix'],
-                  labels=[f"{s:.1f}" for s in side_size.loc[meds.index]['imsize_mpix']], minor=True)
-    ax.set_xticks([1, 10, 100], labels=['', '', 100.0])
+                  labels=labs, minor=True)
+    # ax.set_xticks([1, 10, 100], labels=['', '', 100.0])
+    ax.set_xticks([1, 0.1], labels=['', ''])
     ax.legend()
     ax.xaxis.grid(True)
     ax.yaxis.grid(True)
@@ -78,6 +82,7 @@ if __name__ == "__main__":
     ax2.set_ticks(side_size.loc[meds.index]['imsize_mpix'], labels=[f"{r/1000}" for r in meds.index])
     ax2.set_xlabel("rmax (km)")
     ax2.minorticks_off()
+    fig.suptitle(title)
     plt.show()
 
 
@@ -92,7 +97,7 @@ if __name__ == "__main__":
     plt.show()
 
     ### Objective function ###
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(10, 5))
     ax = plt.gca()
     ax.scatter(objf['rmax'], (objf['apgd'] - objf['pclean'])/objf['pclean'], marker='x', label='apgd')
     # ax.scatter(objf['rmax'], (objf['monofw'] - objf['pclean'])/objf['pclean'], marker='+', label='monofw')
@@ -109,7 +114,7 @@ if __name__ == "__main__":
     meds = [m.groupby('rmax').median() for m in (mse, mad)]
     quart1 = [m.groupby('rmax').quantile(.25) for m in (mse, mad)]
     quart3 = [m.groupby('rmax').quantile(.75) for m in (mse, mad)]
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(8, 5))
     ax = plt.gca()
     ax.set_yscale('log')
     legend_elements = [Line2D([0], [0], marker='x', color='grey',  label='MSE', lw=0),
@@ -123,6 +128,7 @@ if __name__ == "__main__":
             ax.fill_between(m.index, quart1[i][c], quart3[i][c], alpha=.2, color=color)
     ax.legend(handles=legend_elements)
     ax.set_title("MSE & MAD comparison")
+    ax.set_xlabel('rmax (m)')
     plt.show()
 
     # side_size.plot(marker='+')
@@ -134,9 +140,12 @@ if __name__ == "__main__":
     if latex:
         lips = time.groupby('rmax')['lips_t'].mean()
         summary = side_size.copy().reset_index()
-        summary['lips_t'] = lips.reset_index()['lips_t']
-        summary.rename(columns={'rmax': 'rmax (km)', 'npix': 'npix (side size)', 'nvis': 'nvis (k)', 'imsize_mpix': 'imsize (MPix)', 'lips_t': 'lipschitz time (s)'}, inplace=True)
-        print(summary.to_latex(index=False, float_format='%.1f', formatters={'nvis (k)': lambda x: f"{x/1000:.1f}"}))
+        summary['rmax'] /= 1000
+        # summary['lips_t'] = lips.reset_index()['lips_t']
+        summary.rename(columns={'rmax': 'rmax (km)', 'npix': 'npix (side size)', 'nvis': 'nvis (k)',
+                                'imsize_mpix': 'imsize (MPix)',}, inplace=True)  #  'lips_t': 'lipschitz time (s)'
+        print(summary.to_latex(index=False, float_format='%.1f', formatters={'nvis (k)': lambda x: f"{x/1000:.1f}",
+                                                                             'imsize (MPix)': lambda x: f"{x:.2f}"}))
         # mse.drop(columns='monofw', inplace=True)
         # mad.drop(columns='monofw', inplace=True)
         mse = mse.groupby('rmax').median().reset_index()
