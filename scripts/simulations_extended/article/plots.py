@@ -16,7 +16,7 @@ def truncate_colormap(cmap, minval, maxval, n=100):
     return new_cmap
 
 
-def plot_3_images(im_list, title_list, suptitle="", normalize=True, offset_cm=0., vlim=None, alpha=.8):
+def plot_3_images(im_list, title_list, suptitle="", normalize=True, offset_cm=0., vlim=None, alpha=.8, save=None):
     chan, pol = 0, 0
     set_vlim = vlim is None
     if normalize:
@@ -81,6 +81,8 @@ def plot_3_images(im_list, title_list, suptitle="", normalize=True, offset_cm=0.
     #     right=0.991,
     #     hspace=0.2,
     #     wspace=0.023)
+    if save is not None:
+        plt.savefig(save, bbox_inches='tight')
     plt.show()
 
 if __name__=="__main__":
@@ -114,16 +116,22 @@ if __name__=="__main__":
                   suptitle="Comparison restored sharp (components + residual)",
                   normalize=True, offset_cm=0.05)
 
+    save_dir = 'figures'
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
     # WS CLEAN
     plot_3_images([source, ] + images[0][::2],
                   ['Source', 'PolyCLEAN', 'WS-CLEAN'],
                   suptitle="Comparison components",
-                  normalize=True, vlim=0.3, alpha=1)
+                  normalize=True, vlim=0.3, alpha=1,
+                  save=os.path.join(os.getcwd(), save_dir, 'comparison_components.png'))
     plot_3_images([source_conv, ] + images[1][::2],
                   ['Source', 'PolyCLEAN', 'WS-CLEAN'],
                   suptitle="Comparison components convolved sharp",
-                  normalize=True)
+                  normalize=True,
+                  save=os.path.join(os.getcwd(), save_dir, 'comparison_components_convolved.png'))
     plot_3_images([source_conv, ] + images[2][::2],
                   ['Source', 'PolyCLEAN', 'WS-CLEAN'],
                   suptitle="Comparison restored sharp (components + residual)",
-                  normalize=True, offset_cm=0.05)
+                  normalize=True, offset_cm=0.05,
+                  save=os.path.join(os.getcwd(), save_dir, 'comparison_restored.png'))

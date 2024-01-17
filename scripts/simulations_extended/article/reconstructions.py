@@ -242,12 +242,20 @@ if __name__ == "__main__":
                                                                        ut.MAD(m31_convolved, convolved_res[0])))
     print("\tTotal weight: {:.2f}/{:.2f}".format(sol_pc.sum(), m31image.pixels.data.sum()))
 
-    print("\nMS-CLEAN:")
+    print("\nCLEAN:")
     print("\tComponents: MSE {:.2e}, MAD {:.2e}".format(ut.MSE(m31image, clean_comp), ut.MAD(m31image, clean_comp)))
-    print("\tComponents convolved sharp: MSE {:.2e}, MAD {:.2e}".format(ut.MSE(m31_convolved, convolved[-1]),
-                                                                        ut.MAD(m31_convolved, convolved[-1])))
-    print("\tComponents restored sharp: MSE {:.2e}, MAD {:.2e}".format(ut.MSE(m31_convolved, convolved_res[-1]),
-                                                                       ut.MAD(m31_convolved, convolved_res[-1])))
+    print("\tComponents convolved sharp: MSE {:.2e}, MAD {:.2e}".format(ut.MSE(m31_convolved, convolved[1]),
+                                                                        ut.MAD(m31_convolved, convolved[1])))
+    print("\tComponents restored sharp: MSE {:.2e}, MAD {:.2e}".format(ut.MSE(m31_convolved, convolved_res[1]),
+                                                                          ut.MAD(m31_convolved, convolved_res[1])))
+    print("\tTotal weight: {:.2f}/{:.2f}".format(clean_comp.pixels.data.sum(), m31image.pixels.data.sum()))
+
+    print("\nWS-CLEAN:")
+    print("\tComponents: MSE {:.2e}, MAD {:.2e}".format(ut.MSE(m31image, ws_comp), ut.MAD(m31image, ws_comp)))
+    print("\tComponents convolved sharp: MSE {:.2e}, MAD {:.2e}".format(ut.MSE(m31_convolved, convolved[2]),
+                                                                        ut.MAD(m31_convolved, convolved[2])))
+    print("\tComponents restored sharp: MSE {:.2e}, MAD {:.2e}".format(ut.MSE(m31_convolved, convolved_res[2]),
+                                                                       ut.MAD(m31_convolved, convolved_res[2])))
     print("\tTotal weight: {:.2f}/{:.2f}".format(clean_comp.pixels.data.sum(), m31image.pixels.data.sum()))
 
 
@@ -334,3 +342,15 @@ if __name__ == "__main__":
             # fig.colorbar(ims, orientation="vertical", shrink=0.5, ax=ax)
         plt.suptitle("Dual certificates")
         plt.show()
+
+
+    # Resolution
+    # Nominal resolution of the image
+    B = np.max(np.linalg.norm(uvwlambda, axis=1))
+    nominal_resolution = 1 / (B * 3)  # radians
+    # Used resolution
+    resolution = fov_deg / npixel * 3600  # seconds
+    print("Nominal resolution: {:.3e} ('')".format(nominal_resolution * 180 / np.pi * 3600))
+    print(f"\tRequired pixels: {int(fov_deg * np.pi / 180 / nominal_resolution):d}")
+    print("Used resolution: {:.3e} ('')".format(resolution))
+    print(f"Super resolution factor: {nominal_resolution / resolution:.2f}")
