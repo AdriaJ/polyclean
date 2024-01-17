@@ -16,6 +16,7 @@ def stop_crit(
         min_iter: int,
         eps: float,
         value: float = None,
+        dcv: float = None,
 ) -> pxas.StoppingCriterion:
     import datetime as dt
     import pyxu.opt.stop as pxos
@@ -32,6 +33,8 @@ def stop_crit(
         )
     else:
         stop_crit = pxos.AbsError(eps=value, var="objective_func")
+    if dcv is not None:
+        stop_crit = stop_crit & pxos.AbsError(eps=dcv, var="dcv")
     return (stop_crit & min_iter_stop) | duration_stop
 
 
