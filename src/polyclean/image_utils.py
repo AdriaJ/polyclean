@@ -544,7 +544,7 @@ def qq_plot_point_sources_stacked(sky_im, clean_comp, pclean_comp, reweighted_co
     plt.show()
 
 
-def myplot_uvcoverage(vis, title="UV coverage"):
+def myplot_uvcoverage(vis, title="UV coverage", show_non_valid=True):
     """Standard plot of uv coverage
 
     :param vis_list:
@@ -553,20 +553,24 @@ def myplot_uvcoverage(vis, title="UV coverage"):
     :return:
     """
     plt.figure()
-    gvis = vis.where(vis["flags"] == 0)
-    bvis = vis.where(vis["flags"] > 0)
-    u = np.array(gvis.visibility_acc.uvw_lambda.reshape((-1, 3))[..., 0].flat)
-    v = np.array(gvis.visibility_acc.uvw_lambda.reshape((-1, 3))[..., 1].flat)
+    uvw_valid = vis.visibility_acc.uvw_lambda.reshape((-1, 3))[vis['flags'].data.flatten() == 0]
+    u = uvw_valid[..., 0]
+    v = uvw_valid[..., 1]
     plt.plot(u, v, "o", color="b", markersize=0.5, label="Valid")
-    plt.plot(-u, -v, "o", color="b", markersize=0.5)
+    # plt.plot(-u, -v, "o", color="b", markersize=0.5)
 
-    u = np.array(bvis.visibility_acc.uvw_lambda.reshape((-1, 3))[..., 0].flat)
-    v = np.array(bvis.visibility_acc.uvw_lambda.reshape((-1, 3))[..., 1].flat)
-    plt.plot(u, v, "o", color="r", markersize=0.5, label="Non-valid")
-    plt.plot(-u, -v, "o", color="r", markersize=0.5)
+    if show_non_valid:
+        uvw_nonvalid = vis.visibility_acc.uvw_lambda.reshape((-1, 3))[vis['flags'].data.flatten() > 0]
+        unv = uvw_nonvalid[..., 0]
+        vnv = uvw_nonvalid[..., 1]
+        plt.plot(unv, vnv, "o", color="r", markersize=0.5, label="Non-valid")
+        plt.plot(-unv, -vnv, "o", color="r", markersize=0.5)
+        plt.legend()
     plt.xlabel("U (wavelengths)")
     plt.ylabel("V (wavelengths)")
-    plt.legend()
+    lim = 1.05 * max(np.abs(u).max(), np.abs(v).max())
+    plt.xlim([-lim, lim])
+    plt.ylim([-lim, lim])
     plt.title(title)
     plt.show(block=False)
 
