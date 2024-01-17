@@ -47,7 +47,8 @@ if __name__ == "__main__":
         d = np.fromfile(file, sep='\n')
     npix = int(d[0])
     cellsize_rad = d[1] * np.pi / 180.
-    image_model = create_image_from_visibility(predicted_visi, npixel=npix, cellsize=cellsize_rad)
+    image_model = create_image_from_visibility(predicted_visi, npixel=npix, cellsize=cellsize_rad,
+                                               override_cellsize=False)
     image_model = pc.image_add_ra_dec_grid(image_model)
 
     # generation of forward operator
@@ -76,6 +77,10 @@ if __name__ == "__main__":
     # Prepare the convolved sky image for the computation of the metrics
     psf, _ = invert_visibility(predicted_visi, image_model, context=config['clean_params']['context'], dopsf=True)
     cb = fit_psf(psf)
+    cb["bmin"] = cb["bmin"] / config['ra_config']['sharpen_beam']
+    cb["bmaj"] = cb["bmaj"] / config['ra_config']['sharpen_beam']
+
+
     restored_sources = restore_cube(sky_im, None, None, clean_beam=cb)
 
     # PolyCLEAN
