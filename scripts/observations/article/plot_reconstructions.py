@@ -46,6 +46,7 @@ def plot_1_image(image, title="", cmaps=['hot', 'Greys'], alpha=.95, offset_cm=0
     plt.subplots_adjust(top=0.92, bottom=0.08, left=0.0, right=0.93, hspace=0.15, wspace=0.15)
     fig.show()
 
+zoomed_in = True
 
 if __name__ == "__main__":
     dir_path = os.path.join(os.getcwd(), 'reco_pkl')
@@ -53,7 +54,8 @@ if __name__ == "__main__":
     files_dir = ['0.05', 'autothresh3', '0.02', 'autothresh2', '0.005', 'autothresh1']
     images = []
     for f in files_dir:
-        with open(os.path.join(dir_path, f, 'restored.pkl'), 'rb') as file:
+        # restored, restored_sharps, comp_restored, comp_restored_sharp, model, residual
+        with open(os.path.join(dir_path, f, 'residual' + '.pkl'), 'rb') as file:
             images.append(pickle.load(file))
     with open(os.path.join(os.getcwd(), 'dirty.pkl'), 'rb') as file:
         dirty_im = pickle.load(file)
@@ -63,7 +65,8 @@ if __name__ == "__main__":
     vmax = max([im.pixels.data.max() for im in images])
     vmin = min([im.pixels.data.min() for im in images])
 
-    vlim = -vmin
+    vlim = 172.1
+    # vlim = -vmin
     alpha = .95
 
     split = int(2 * vlim * 256 / (vmax + vlim))
@@ -99,9 +102,31 @@ if __name__ == "__main__":
             ax.coords[0].set_ticklabel_visible(False)
             ax.coords[0].set_axislabel('')
 
+        # Zoomed in as inset
+        if zoomed_in:
+            # x1, x2, y1, y2 = 425, 575, 85, 235
+            x1, x2, y1, y2 = 130, 250, 630, 750
+            axins = ax.inset_axes(
+                [0.5, 0.5, 0.47, 0.47],
+                xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[], xticks=[], yticks=[],)
+            axins.imshow(im_neg, origin="lower", cmap=cmapn, interpolation='none', alpha=alpha, vmin=-vlim, vmax=vlim) #, extent=extent)
+            axins.imshow(im_pos, origin="lower", cmap=cmapp, interpolation='none', norm=n, alpha=alpha)
+            ax.indicate_inset_zoom(axins, edgecolor="black")
+
     cbar_ax = inset_axes(axes[0, 0], width="250%", height="6%", loc='upper left', borderpad=-5)
     fig.colorbar(aximp, cax=cbar_ax, orientation="horizontal", ticks=[vlim, 1000, 2000, 3000, 4000])
     cbar_ax2 = inset_axes(cbar_ax, width="100%", height="100%", loc='upper center', borderpad=-4)
     fig.colorbar(aximn, cax=cbar_ax2, orientation="horizontal", ticks=[-vlim, -vlim/2, 0, vlim/2, vlim])
     plt.subplots_adjust(top=0.9, bottom=0.05, left=0.1, right=0.9, hspace=0.09, wspace=0.)
     plt.show()
+
+    for i in range(3):
+        max_pclean = images[2*i].pixels.data.max()
+        max_wsclean = images[2*i+1].pixels.data.max()
+        print(f"max pclean: {max_pclean:.3f}, max wsclean: {max_wsclean:.3f}, ratio: {max_pclean/max_wsclean:.3f}")
+
+    for im in images:
+        # print the l1 norm, l2 norm and standard deviation of each image
+        print(f"l1 norm: {np.sum(np.abs(im.pixels.data)):.3e},"
+              f"l2 norm: {np.sum(im.pixels.data**2)**.5:.3e},"
+              f"std: {np.std(im.pixels.data):.3f}")
