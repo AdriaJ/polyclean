@@ -25,16 +25,18 @@ from ska_sdp_datamodels.science_data_model.polarisation_model import Polarisatio
 from ska_sdp_datamodels.visibility.vis_utils import generate_baselines
 from ska_sdp_datamodels.sky_model import SkyComponent
 
-nantennas = 28
+from scripts.observations.article.create_gt_image import peak_thresh
+
+nantennas = 50  # 28, 48 up to 62
 ntimes = 50
-npixel = 1024
+npixel = 3072  # 1024, 1536, 2048, 3072
 fov_deg = 6.
 context = "ng"
 
 nufft_eps = 1e-3
 lambda_factor = 0.005
 eps = 1e-4
-tmax = 120. * 2
+tmax = 3600 * 5
 min_iter = 5
 ms_threshold = 0.9
 init_correction_prec = 1e-2
@@ -46,9 +48,14 @@ lock = False
 diagnostics = True
 log_diagnostics = False
 
+chunked = False
+
 save = False
 save_unified = False
-save_im_pkl = True
+save_im_pkl = False
+
+compare_gt = True
+do_certificate = False
 
 def truncate_colormap(cmap, minval, maxval, n=100):
     if isinstance(cmap, str):
@@ -196,7 +203,7 @@ if __name__ == "__main__":
     print("Selected vis: ", vis.dims)
     # Broken antennas: 12, 13, 16, 17, 47
     # Unusable baseline: (22, 23)
-    # ut.myplot_uvcoverage(vis, title="Subsampled UV coverage")
+    ut.myplot_uvcoverage(vis, title="Subsampled UV coverage")
 
     phasecentre = vis.phasecentre
     fov = fov_deg * np.pi / 180.
@@ -218,11 +225,23 @@ if __name__ == "__main__":
     flagged_uvwlambda = uvwlambda[flags_bool]
 
     forwardOp = pc.generatorVisOp(direction_cosines=direction_cosines, vlambda=flagged_uvwlambda,
-                                  nufft_eps=nufft_eps, chunked=False)
-    start = time.time()
-    fOp_lipschitz = forwardOp.estimate_lipschitz(method='svd', tol=1.)  # ~8000 in 18 min in chunked mode, no memory issue
-    dt_lipschitz = time.time() - start
-    print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)\n".format(dt_lipschitz))
+                                  nufft_eps=nufft_eps, chunked=chunked)
+
+    fOp_lipschitz = None
+    if nantennas==48 and npixel==2048:
+        fOp_lipschitz = 13_749.0
+    elif (nantennas==49 or nantennas==50) and npixel==2048:
+        fOp_lipschitz = 13_750.0
+    elif (nantennas==49 or nantennas==50) and npixel==3072:
+        fOp_lipschitz = 20_624.1
+
+    if fOp_lipschitz is not None:
+        print("Known Lipschitz constant.")
+    else:
+        start = time.time()
+        fOp_lipschitz = forwardOp.estimate_lipschitz(method='svd', tol=1.)  # ~8000 in 18 min in chunked mode, no memory issue
+        dt_lipschitz = time.time() - start
+        print("Computation of the Lipschitz constant of the forward operator in: {:.3f} (s)\n".format(dt_lipschitz))
 
     vis_array = pxc.view_as_real(vis.vis.data.reshape(-1)[flags_bool])
     sum_vis = vis_array.shape[0] // 2
@@ -267,6 +286,18 @@ if __name__ == "__main__":
     print("PolyCLEAN final DCV: {:.3f}".format(data["dcv"]))
     print("Iterations: {}".format(int(hist['N_iter'][-1])))
     print("Final sparsity of the components: {}".format(np.count_nonzero(data["x"])))
+
+    ### Cellsize
+    # Nominal resolution of the image
+    B = np.max(np.linalg.norm(uvwlambda, axis=1))
+    print(f"Largest baseline: {B:.1f}")
+    nominal_resolution = 1 / (B * 3)  # radians
+    # Used resolution
+    resolution = fov_deg / npixel * np.pi / 180  # radians
+    print("Nominal resolution: {:.3e} (rad)".format(nominal_resolution))
+    print(f"\tRequired pixels: {int(fov_deg * np.pi / 180 / nominal_resolution):d}")
+    print("Used resolution: {:.3e} (rad)".format(resolution))
+    print(f"Super resolution factor: {nominal_resolution / resolution:.2f}")
 
     psf, _ = invert_visibility(vis, image_model, context=context, dopsf=True)
     clean_beam = fit_psf(psf)
@@ -332,140 +363,184 @@ if __name__ == "__main__":
             with open(folder_path + "/restored_sharp.pkl", 'wb') as handle:
                 pickle.dump(pclean_sharp, handle)
 
+    if compare_gt:
+        sharp = False
 
+        from astropy.io import fits
+        from ska_sdp_func_python.sky_component import insert_skycomponent
+
+        catalogpath = "/home/jarret/Documents/EPFL/PhD/ra_data/LOFAR150_BOOTES.fits"
+        mode = "total"
+        peak_thresh = 10
+        with fits.open(catalogpath) as hdul:
+            hdul.info()
+            c = hdul[1].columns
+            if mode == "total":
+                col_names = ['RA', 'DEC', 'Total_flux']  # Peak_flux
+            elif mode == "peak":
+                col_names = ['RA', 'DEC', 'Peak_flux']
+            src_ra_dec_flux = np.vstack([hdul[1].data[n] for n in col_names])  # degrees
+        src_ra_dec_flux = src_ra_dec_flux[:, src_ra_dec_flux[-1] > peak_thresh]
+        # Load sky components
+        sc = []
+        for ra_dec_flux in src_ra_dec_flux.T:
+            ra, dec, flux = ra_dec_flux
+            sc_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="icrs", )  # equinox="J2000")
+            sc.append(SkyComponent(sc_coord, flux=np.r_[flux].reshape(1, 1), frequency=vis.frequency.data,
+                                   polarisation_frame=PolarisationFrame("stokesI")))
+            # print(ra, dec, flux)
+
+        gt_image = image_model.copy(deep=True)
+        insert_skycomponent(gt_image, sc, insert_method='Nearest')
+        gt_im = restore_cube(gt_image, None, None, clean_beam=clean_beam)
+
+        difference_arr = pclean_comp_restored.pixels.data[0, 0] - gt_im.pixels.data[0, 0]
+
+        print(f"\tMean: {difference_arr.mean():.3f}, Median: {np.median(difference_arr):.3f}, Std: {difference_arr.std():.3f}")
+        print(f"\tMean error: {np.abs(difference_arr).mean():.3f}")
+        print(f"\tMin: {difference_arr.min():.3f}, Max: {difference_arr.max():.3f}")
+
+        arr = difference_arr
+        # arr = np.sqrt(np.abs(arr)) * np.sign(arr)
+        vlim = np.abs(arr).max()
+        plt.figure(figsize=(12, 10))
+        plt.imshow(arr, origin="lower", cmap='bwr', interpolation='none', vmin=-vlim, vmax=vlim)
+        plt.colorbar()
+        plt.title("Difference image")
+        plt.show()
 
     ## Dual certificate
+    if do_certificate:
+        ### Load the catalogue locations
+        catalog = "bootes_catalog.npz"
+        filecatalog = path + catalog
+        with np.load(filecatalog, allow_pickle=True) as f:
+            lst = f.files
+            src_ra_dec_flux_rad = f[lst[0]]
+        peak_thresh = 30  # 20
+        print("Select source from the catalog with peak flux higher than {:d} Jy:".format(peak_thresh))
+        src_ra_dec_flux_rad = src_ra_dec_flux_rad[:, src_ra_dec_flux_rad[-1] > peak_thresh]
+        print("\t{:d} sources selected.".format(src_ra_dec_flux_rad.shape[1]))
 
-    ### Load the catalogue locations
-    catalog = "bootes_catalog.npz"
-    filecatalog = path + catalog
-    with np.load(filecatalog, allow_pickle=True) as f:
-        lst = f.files
-        src_ra_dec_flux_rad = f[lst[0]]
-    peak_thresh = 30  # 20
-    print("Select source from the catalog with peak flux higher than {:d} Jy:".format(peak_thresh))
-    src_ra_dec_flux_rad = src_ra_dec_flux_rad[:, src_ra_dec_flux_rad[-1] > peak_thresh]
-    print("\t{:d} sources selected.".format(src_ra_dec_flux_rad.shape[1]))
+        sky_coords = SkyCoord(ra=src_ra_dec_flux_rad[0] * u.rad,
+                              dec=src_ra_dec_flux_rad[1] * u.rad,
+                              frame="icrs", equinox="J2000")
+        sc = [SkyComponent(sky_coords[i], flux=src_ra_dec_flux_rad[-1, i].reshape((1, 1)),
+                           frequency=np.r_[total_vis.frequency],
+                           shape='Point',
+                           polarisation_frame=PolarisationFrame("stokesI")
+                           ) for i in range(len(sky_coords))]  # if coord_in_fov(sky_coords[i], phasecentre, fov_deg)]
+        # catalogue_image = image_model.copy(deep=True)
+        # insert_skycomponent(catalogue_image, sc, insert_method='Nearest')
 
-    sky_coords = SkyCoord(ra=src_ra_dec_flux_rad[0] * u.rad,
-                          dec=src_ra_dec_flux_rad[1] * u.rad,
-                          frame="icrs", equinox="J2000")
-    sc = [SkyComponent(sky_coords[i], flux=src_ra_dec_flux_rad[-1, i].reshape((1, 1)),
-                       frequency=np.r_[total_vis.frequency],
-                       shape='Point',
-                       polarisation_frame=PolarisationFrame("stokesI")
-                       ) for i in range(len(sky_coords))]  # if coord_in_fov(sky_coords[i], phasecentre, fov_deg)]
-    # catalogue_image = image_model.copy(deep=True)
-    # insert_skycomponent(catalogue_image, sc, insert_method='Nearest')
+        dual_certificate_im = image_model.copy(deep=True)
+        dual_certificate_im.pixels.data = pclean_residual.reshape(dual_certificate_im.pixels.data.shape) / lambda_
 
-    dual_certificate_im = image_model.copy(deep=True)
-    dual_certificate_im.pixels.data = pclean_residual.reshape(dual_certificate_im.pixels.data.shape) / lambda_
+        # fig = plt.figure(figsize=(12, 12))
+        # chan, pol = 0, 0
+        # cmap = "cubehelix_r"
+        # ax = fig.subplots(1, 1, subplot_kw={'projection': dual_certificate_im.image_acc.wcs.sub([1, 2]), 'frameon': False})
+        # dual_certif_arr = np.real(dual_certificate_im["pixels"].data[chan, pol, :, :])
+        # ims = ax.imshow(dual_certif_arr, origin="lower", cmap=cmap, interpolation="none")
+        # ax.set_ylabel(image_model.image_acc.wcs.wcs.ctype[1])
+        # ax.set_xlabel(image_model.image_acc.wcs.wcs.ctype[0])
+        # ax.contour(dual_certif_arr, levels=[.9], colors="c")
+        # fig.suptitle("Dual certificate image - maximum value: {:.3f}".format(dual_certif_arr.max()))
+        # # for component in sc:
+        # #     x, y = skycoord_to_pixel(component.direction, dual_certificate_im.image_acc.wcs, 0, "wcs")
+        # #     ax.scatter(x, y, marker="+", color="red", s=30, alpha=.9)
+        # axins = inset_axes(ax, width="4%", height="100%", loc='center right', borderpad=-5)
+        # cb = fig.colorbar(ims, cax=axins, orientation="vertical")
+        # cb.ax.hlines(0.9, 0, 1, color='c')
+        # plt.show()
+        #
+        # folder_path = "/home/jarret/PycharmProjects/polyclean/figures/lofar_ps/dual_certificate/" + str(lambda_factor)
+        # if not os.path.exists(folder_path):
+        #     os.makedirs(folder_path)
+        # if save:
+        #     plt.savefig(folder_path + "/certif_0.9.pdf")
 
-    # fig = plt.figure(figsize=(12, 12))
-    # chan, pol = 0, 0
-    # cmap = "cubehelix_r"
-    # ax = fig.subplots(1, 1, subplot_kw={'projection': dual_certificate_im.image_acc.wcs.sub([1, 2]), 'frameon': False})
-    # dual_certif_arr = np.real(dual_certificate_im["pixels"].data[chan, pol, :, :])
-    # ims = ax.imshow(dual_certif_arr, origin="lower", cmap=cmap, interpolation="none")
-    # ax.set_ylabel(image_model.image_acc.wcs.wcs.ctype[1])
-    # ax.set_xlabel(image_model.image_acc.wcs.wcs.ctype[0])
-    # ax.contour(dual_certif_arr, levels=[.9], colors="c")
-    # fig.suptitle("Dual certificate image - maximum value: {:.3f}".format(dual_certif_arr.max()))
-    # # for component in sc:
-    # #     x, y = skycoord_to_pixel(component.direction, dual_certificate_im.image_acc.wcs, 0, "wcs")
-    # #     ax.scatter(x, y, marker="+", color="red", s=30, alpha=.9)
-    # axins = inset_axes(ax, width="4%", height="100%", loc='center right', borderpad=-5)
-    # cb = fig.colorbar(ims, cax=axins, orientation="vertical")
-    # cb.ax.hlines(0.9, 0, 1, color='c')
-    # plt.show()
-    #
-    # folder_path = "/home/jarret/PycharmProjects/polyclean/figures/lofar_ps/dual_certificate/" + str(lambda_factor)
-    # if not os.path.exists(folder_path):
-    #     os.makedirs(folder_path)
-    # if save:
-    #     plt.savefig(folder_path + "/certif_0.9.pdf")
+        comp_im = pclean_comp_restored.pixels.data[0, 0]
+        res_im = pclean_residual_im.pixels.data[0, 0]
 
-    comp_im = pclean_comp_restored.pixels.data[0, 0]
-    res_im = pclean_residual_im.pixels.data[0, 0]
+        def symm_sqrt_norm(vmin, vmax):  # norm=symm_sqrt_norm(arr.min(), vlim)
+            def _forward(x):
+                return np.sqrt(np.abs(x)) * np.sign(x)
 
-    def symm_sqrt_norm(vmin, vmax):  # norm=symm_sqrt_norm(arr.min(), vlim)
-        def _forward(x):
-            return np.sqrt(np.abs(x)) * np.sign(x)
+            def _inverse(x):
+                return np.sign(x) * x ** 2
 
-        def _inverse(x):
-            return np.sign(x) * x ** 2
-
-        return mplc.FuncNorm((_forward, _inverse), vmin=vmin, vmax=vmax)
+            return mplc.FuncNorm((_forward, _inverse), vmin=vmin, vmax=vmax)
 
 
-    arr = dual_certificate_im.pixels.data[0, 0]
-    folder_path = "/home/jarret/PycharmProjects/polyclean/figures/lofar_ps/dual_certificate/" + str(lambda_factor)
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
+        arr = dual_certificate_im.pixels.data[0, 0]
+        folder_path = "/home/jarret/PycharmProjects/polyclean/figures/lofar_ps/dual_certificate/" + str(lambda_factor)
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
 
-    cmaps = ['hot', 'Greys']
+        cmaps = ['hot', 'Greys']
 
-    ## option 1
-    alpha = 0.95
-    offset_cm = 0.0
+        ## option 1
+        alpha = 0.95
+        offset_cm = 0.0
 
-    fig = plt.figure(figsize=(12, 10))
-    ax = fig.subplots(1, 1, subplot_kw={'projection': image_model.image_acc.wcs.sub([1, 2]), 'frameon': False})
-    ax.set_xlabel(image_model.image_acc.wcs.wcs.ctype[0])
-    ax.set_ylabel(image_model.image_acc.wcs.wcs.ctype[1])
-    vlim = 0.8
-    mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
-    mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
-    cmapc = truncate_colormap(cmaps[0], offset_cm, 1.)
-    aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapc, interpolation='none', alpha=alpha,
-                      norm='linear', vmax=1.)
-    # norm=mplc.PowerNorm(gamma=0.5, vmin=vlim, vmax=1. * mask_comp.max()))
-    cmapr = truncate_colormap(cmaps[1], 0., 1 - offset_cm)
-    aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha, cmap=cmapr,
-                      norm='linear', vmin=arr.min(), vmax=vlim, )
-    # norm=symm_sqrt_norm(arr.min(), vlim),)
-    axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
-    cbc = fig.colorbar(aximc, cax=axinsc,
-                       orientation="vertical", extend='max')  # ticks=[50, 1000, 2000, 3000, 4000])
-    axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
-    cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
-    # ax.contour(arr, levels=[.9], colors="b")
-    # cbc.ax.hlines(0.9, 0, 1, color='b')
-    fig.suptitle("Dual certificate image - maximum value: {:.3f}".format(arr.max()))
-    for s in sc:
-        x, y = skycoord_to_pixel(s.direction, image_model.image_acc.wcs, 0, "wcs")
-        ax.scatter(x, y, marker="+", color="blue", s=60, alpha=.9)
-    fig.show()
-    if save:
-        plt.savefig(folder_path + "/certif_0.8_sources.png")
+        fig = plt.figure(figsize=(12, 10))
+        ax = fig.subplots(1, 1, subplot_kw={'projection': image_model.image_acc.wcs.sub([1, 2]), 'frameon': False})
+        ax.set_xlabel(image_model.image_acc.wcs.wcs.ctype[0])
+        ax.set_ylabel(image_model.image_acc.wcs.wcs.ctype[1])
+        vlim = 0.8
+        mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
+        mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
+        cmapc = truncate_colormap(cmaps[0], offset_cm, 1.)
+        aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapc, interpolation='none', alpha=alpha,
+                          norm='linear', vmax=1.)
+        # norm=mplc.PowerNorm(gamma=0.5, vmin=vlim, vmax=1. * mask_comp.max()))
+        cmapr = truncate_colormap(cmaps[1], 0., 1 - offset_cm)
+        aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha, cmap=cmapr,
+                          norm='linear', vmin=arr.min(), vmax=vlim, )
+        # norm=symm_sqrt_norm(arr.min(), vlim),)
+        axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
+        cbc = fig.colorbar(aximc, cax=axinsc,
+                           orientation="vertical", extend='max')  # ticks=[50, 1000, 2000, 3000, 4000])
+        axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
+        cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
+        # ax.contour(arr, levels=[.9], colors="b")
+        # cbc.ax.hlines(0.9, 0, 1, color='b')
+        fig.suptitle("Dual certificate image - maximum value: {:.3f}".format(arr.max()))
+        for s in sc:
+            x, y = skycoord_to_pixel(s.direction, image_model.image_acc.wcs, 0, "wcs")
+            ax.scatter(x, y, marker="+", color="blue", s=60, alpha=.9)
+        fig.show()
+        if save:
+            plt.savefig(folder_path + "/certif_0.8_sources.png")
 
-    # ## option 2
-    # alpha = 0.95
-    # offset_cm = 0.0
-    #
-    # fig = plt.figure(figsize=(12, 10))
-    # ax = fig.subplots(1, 1, subplot_kw={'projection': image_model.image_acc.wcs.sub([1, 2]), 'frameon': False})
-    # ax.set_xlabel(image_model.image_acc.wcs.wcs.ctype[0])
-    # ax.set_ylabel(image_model.image_acc.wcs.wcs.ctype[1])
-    # vlim = 0.
-    # mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
-    # mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
-    # cmapc = truncate_colormap(cmaps[0], offset_cm, 1.)
-    # aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapc, interpolation='none', alpha=alpha,
-    #                   norm='linear', vmax=1.)
-    # # norm=mplc.PowerNorm(gamma=0.5, vmin=vlim, vmax=1. * mask_comp.max()))
-    # cmapr = truncate_colormap(cmaps[1], 0., 1 - offset_cm)
-    # aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha, cmap=cmapr,
-    #                   norm='linear', vmin=arr.min(), vmax=vlim, )
-    # # norm=symm_sqrt_norm(arr.min(), vlim),)
-    # axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
-    # cbc = fig.colorbar(aximc, cax=axinsc,
-    #                    orientation="vertical", extend='max') # ticks=[50, 1000, 2000, 3000, 4000])
-    # ax.contour(arr, levels=[.9], colors="b")
-    # cbc.ax.hlines(0.9, 0, 1, color='b')
-    # axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
-    # cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
-    # fig.suptitle("Dual certificate image - maximum value: {:.3f}".format(arr.max()))
-    # fig.show()
-    # if save:
-    #     plt.savefig(folder_path + "/certif_0.9_option2.png")
+        # ## option 2
+        # alpha = 0.95
+        # offset_cm = 0.0
+        #
+        # fig = plt.figure(figsize=(12, 10))
+        # ax = fig.subplots(1, 1, subplot_kw={'projection': image_model.image_acc.wcs.sub([1, 2]), 'frameon': False})
+        # ax.set_xlabel(image_model.image_acc.wcs.wcs.ctype[0])
+        # ax.set_ylabel(image_model.image_acc.wcs.wcs.ctype[1])
+        # vlim = 0.
+        # mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
+        # mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
+        # cmapc = truncate_colormap(cmaps[0], offset_cm, 1.)
+        # aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapc, interpolation='none', alpha=alpha,
+        #                   norm='linear', vmax=1.)
+        # # norm=mplc.PowerNorm(gamma=0.5, vmin=vlim, vmax=1. * mask_comp.max()))
+        # cmapr = truncate_colormap(cmaps[1], 0., 1 - offset_cm)
+        # aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha, cmap=cmapr,
+        #                   norm='linear', vmin=arr.min(), vmax=vlim, )
+        # # norm=symm_sqrt_norm(arr.min(), vlim),)
+        # axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
+        # cbc = fig.colorbar(aximc, cax=axinsc,
+        #                    orientation="vertical", extend='max') # ticks=[50, 1000, 2000, 3000, 4000])
+        # ax.contour(arr, levels=[.9], colors="b")
+        # cbc.ax.hlines(0.9, 0, 1, color='b')
+        # axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
+        # cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
+        # fig.suptitle("Dual certificate image - maximum value: {:.3f}".format(arr.max()))
+        # fig.show()
+        # if save:
+        #     plt.savefig(folder_path + "/certif_0.9_option2.png")
