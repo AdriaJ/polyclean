@@ -20,10 +20,10 @@ import polyclean.polyclean as pc
 # matplotlib.use("Qt5Agg")
 
 seed = 64  # np.random.randint(0, 1000)  # np.random.randint(0, 1000)  # 492
-rmax = 300.  # 2000.
+rmax = 600.  # 2000.
 times = (np.arange(7) - 3) * np.pi / 9  # 7 angles from -pi/3 to pi/3
 fov_deg = 5
-npixel = 720  # 512  # 384 #  128 * 2
+npixel = 360  # 512  # 384 #  128 * 2
 npoints = 200
 nufft_eps = 1e-3
 chunked = False
@@ -250,3 +250,23 @@ if __name__ == "__main__":
     # if not os.path.exists(folder_path):
     #     os.makedirs(folder_path)
     # plt.savefig(os.path.join(folder_path, 'source.png'))
+
+    ### Compare cellsizes
+    from ska_sdp_func_python.imaging import advise_wide_field
+    import polyclean.ra_utils as pcrau
+
+    srf = 2.5
+
+    advice = advise_wide_field(
+        vt, guard_band_image=6.0, delA=0.1, oversampling_synthesised_beam=3.0
+        )
+    rascil_cs = advice["cellsize"]  # radians
+    npix = pcrau.get_npixels(vt, fov_deg, phasecentre, 1e-3, srf=srf)
+    hvox_cs = np.pi * fov_deg / (180 * npix) # radians
+    print(f"Rascil cellsize: {rascil_cs:.3e} rad")
+    print(f"HVox cellsize: {hvox_cs:.3e} rad")
+    print(f"Current cellsize: {fov_deg/npixel * np.pi/180:.3e} rad")
+
+    import polyclean.image_utils as ut
+
+    ut.plot_image(pclean_comp, sc=sc)
