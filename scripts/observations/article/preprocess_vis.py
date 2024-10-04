@@ -8,7 +8,7 @@ data_path = "/home/jarret/Documents/EPFL/PhD/ra_data/"
 vis_path = "vis"
 pklname = data_path + "bootes.pkl"
 
-nantennas = 28
+nantennas = 50
 ntimes = 50
 
 if __name__ == "__main__":

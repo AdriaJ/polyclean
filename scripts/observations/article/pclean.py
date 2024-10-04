@@ -17,13 +17,14 @@ from ska_sdp_func_python.util import skycoord_to_lmn
 
 lambda_factors = [0.05, 0.02, 0.005]
 
-npixel = 1024
+npixel = 3072
+nantennas = 50
 fov_deg = 6.
 context = "ng"
 
 nufft_eps = 1e-3
 eps = 1e-4
-tmax = 120. * 2
+tmax = 3600 * 8
 min_iter = 5
 ms_threshold = 0.9
 init_correction_prec = 1e-2
@@ -101,6 +102,8 @@ if __name__ == "__main__":
         pickle.dump(dirty_image, handle)
 
     durations = []
+    dcvs = []
+    sparsity = []
 
     for factor in lambda_factors:
         lambda_ = factor * np.abs(dirty_array).max()
@@ -124,8 +127,10 @@ if __name__ == "__main__":
         pclean_residual = forwardOp.adjoint(vis_array - forwardOp(data["x"]))
 
         print("PolyCLEAN final DCV: {:.3f}".format(data["dcv"]))
+        dcvs.append(data["dcv"])
         print("Iterations: {}".format(int(hist['N_iter'][-1])))
         print("Final sparsity of the components: {}".format(np.count_nonzero(data["x"])))
+        sparsity.append(np.count_nonzero(data["x"]))
 
         ## Convolve the images
         pclean_comp = image_model.copy(deep=True)
@@ -142,7 +147,7 @@ if __name__ == "__main__":
             pclean_sharp = restore_cube(pclean_comp, None, pclean_residual_im, clean_beam=sharp_beam)
 
         ## Save the reconstructions
-        folder_path = os.path.join(os.getcwd(), 'reco_pkl', str(factor))
+        folder_path = os.path.join(os.getcwd(), 'reco_pkl', str(nantennas) + "antennas", str(factor))
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
         with open(os.path.join(folder_path, "restored.pkl"), 'wb') as handle:
@@ -159,6 +164,9 @@ if __name__ == "__main__":
             with open(os.path.join(folder_path, "comp_restored_sharp.pkl"), 'wb') as handle:
                 pickle.dump(comp_restored_sharp, handle)
 
+
+
+
     ### Cellsize
     # Nominal resolution of the image
     B = np.max(np.linalg.norm(uvwlambda, axis=1))
@@ -169,3 +177,17 @@ if __name__ == "__main__":
     print(f"\tRequired pixels: {int(fov_deg * np.pi / 180 / nominal_resolution):d}")
     print("Used resolution: {:.3e} (rad)".format(resolution))
     print(f"Super resolution factor: {nominal_resolution / resolution:.2f}")
+
+    with open(os.path.join(os.getcwd(), 'reco_pkl', str(nantennas) + "antennas", "report.txt"), 'w+') as file:
+        file.write("PolyCLEAN reconstructions\n")
+        file.write(f"Number of antennas: {nantennas:d}\n")
+        file.write(f"Field of view: {fov_deg:.3f} (deg)\n")
+        file.write(f"Number of pixels: {npixel:d}\n")
+        file.write(f"Largest baseline: {B:.3f} (m)\n")
+        file.write(f"Nominal resolution: {nominal_resolution:.3e} (rad)\n")
+        file.write(f"Used resolution: {resolution:.3e} (rad)\n")
+        file.write(f"Super resolution factor: {nominal_resolution / resolution:.2f}\n\n")
+        file.write("Lambda factors:" + str(lambda_factors) + "\n")
+        file.write("Reconstruction times:" + str(durations) + "\n")
+        file.write("Final DCVs:" + str(dcvs) + "\n")
+        file.write("Final sparsity:" + str(sparsity) + "\n")
