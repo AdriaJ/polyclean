@@ -178,7 +178,7 @@ if __name__ == "__main__":
     print("Used resolution: {:.3e} (rad)".format(resolution))
     print(f"Super resolution factor: {nominal_resolution / resolution:.2f}")
 
-    with open(os.path.join(os.getcwd(), 'reco_pkl', str(nantennas) + "antennas", "report.txt"), 'w+') as file:
+    with open(os.path.join(os.getcwd(), 'reco_pkl', str(nantennas) + "antennas", "report_pclean.txt"), 'w+') as file:
         file.write("PolyCLEAN reconstructions\n")
         file.write(f"Number of antennas: {nantennas:d}\n")
         file.write(f"Field of view: {fov_deg:.3f} (deg)\n")
@@ -187,7 +187,7 @@ if __name__ == "__main__":
         file.write(f"Nominal resolution: {nominal_resolution:.3e} (rad)\n")
         file.write(f"Used resolution: {resolution:.3e} (rad)\n")
         file.write(f"Super resolution factor: {nominal_resolution / resolution:.2f}\n\n")
-        file.write("Lambda factors:" + str(lambda_factors) + "\n")
-        file.write("Reconstruction times:" + str(durations) + "\n")
-        file.write("Final DCVs:" + str(dcvs) + "\n")
-        file.write("Final sparsity:" + str(sparsity) + "\n")
+        file.write("Lambda factors: " + str(lambda_factors) + "\n")
+        file.write("Reconstruction times: " + str(durations) + "\n")
+        file.write("Final DCVs: " + str(dcvs) + "\n")
+        file.write("Final sparsity: " + str(sparsity) + "\n")

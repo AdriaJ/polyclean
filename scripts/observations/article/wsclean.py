@@ -9,7 +9,9 @@ from rascil.processing_components.image.operations import import_image_from_fits
 
 thresholds = [1, 2, 3]
 
-npixel = 1024
+npixel = 3072
+nantennas = 50
+
 fov_deg = 6.
 context = "ng"
 niter = 10_000
@@ -35,6 +37,8 @@ if __name__ == "__main__":
     sharp_beam["bmin"] = clean_beam["bmin"] / 2
     sharp_beam["bmaj"] = clean_beam["bmaj"] / 2
 
+    durations = []
+
     for thresh in thresholds:
         start = time.time()
         os.system(
@@ -42,6 +46,7 @@ if __name__ == "__main__":
             f"-niter {niter:d} -name ws -weight natural -quiet -no-dirty vis/ssms.ms")
         print("\tRun in {:.3f}s".format(dt_wsclean := time.time() - start))
         os.system(f"mv ws-* wsclean-dir/")
+        durations.append(dt_wsclean)
 
         wsclean_model = import_image_from_fits(ws_dir + '/' + f"ws-model.fits")
         wsclean_residual = import_image_from_fits(ws_dir + '/' + f"ws-residual.fits")
@@ -58,7 +63,7 @@ if __name__ == "__main__":
             os.makedirs(folder_path)
 
         if save_im_pkl:
-            folder_path = os.path.join(os.getcwd(), 'reco_pkl', f'autothresh{thresh}')
+            folder_path = os.path.join(os.getcwd(), 'reco_pkl', str(nantennas) + 'antennas', f'autothresh{thresh}')
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
             with open(os.path.join(folder_path, "restored.pkl"), 'wb') as handle:
@@ -73,5 +78,10 @@ if __name__ == "__main__":
                 pickle.dump(wsclean_model, handle)
             with open(os.path.join(folder_path, "residual.pkl"), 'wb') as handle:
                 pickle.dump(wsclean_residual, handle)
+
+            with open(os.path.join(os.getcwd(), 'reco_pkl', str(nantennas) + 'antennas', 'report_wsclean.txt'), "w+") as file:
+                file.write("WS-CLEAN reconstrucitons:\n")
+                file.write(f"Autothresholds: {thresholds}\n")
+                file.write(f"Durations: " + str(durations) + "\n")
 
     os.system(f"rm -rd wsclean-dir")
