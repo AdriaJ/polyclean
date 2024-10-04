@@ -5,6 +5,7 @@ import pickle
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mptchs
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from plot_reconstructions import plot_1_image, truncate_colormap
@@ -37,6 +38,8 @@ if __name__ == "__main__":
     cmapr = truncate_colormap(cmaps[1], 0., 1 - offset_cm)
     aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha, cmap=cmapr,
                       norm='linear', vmin=arr.min(), vmax=vlim, )
+    rect = mptchs.Rectangle((380, 70), 230, 180, fill=False, edgecolor='aquamarine', lw=3, ls='--')
+    ax.add_patch(rect)
     axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
     cbc = fig.colorbar(aximc, cax=axinsc, orientation="vertical", extend='max')
     axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
