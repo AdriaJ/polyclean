@@ -55,12 +55,12 @@ if __name__ == "__main__":
     images = []
     for f in files_dir:
         # restored, restored_sharps, comp_restored, comp_restored_sharp, model, residual
-        with open(os.path.join(dir_path, f, 'residual' + '.pkl'), 'rb') as file:
+        with open(os.path.join(dir_path, f, 'comp_restored' + '.pkl'), 'rb') as file:
             images.append(pickle.load(file))
     with open(os.path.join(os.getcwd(), 'dirty.pkl'), 'rb') as file:
         dirty_im = pickle.load(file)
 
-    plot_1_image(dirty_im, title="Dirty image")
+    plot_1_image(dirty_im, title="Dirty image", offset_cm=0.05, vlim=172.1)
 
     vmax = max([im.pixels.data.max() for im in images])
     vmin = min([im.pixels.data.min() for im in images])
