@@ -557,7 +557,7 @@ def myplot_uvcoverage(vis, title="UV coverage", show_non_valid=True):
     u = uvw_valid[..., 0]
     v = uvw_valid[..., 1]
     plt.plot(u, v, "o", color="b", markersize=0.5, label="Valid")
-    # plt.plot(-u, -v, "o", color="b", markersize=0.5)
+    plt.plot(-u, -v, "o", color="b", markersize=0.5)
 
     if show_non_valid:
         uvw_nonvalid = vis.visibility_acc.uvw_lambda.reshape((-1, 3))[vis['flags'].data.flatten() > 0]
