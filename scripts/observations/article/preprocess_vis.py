@@ -37,3 +37,23 @@ if __name__ == "__main__":
     export_visibility_to_ms(os.path.join(vis_path, msname), [vis], )
     with open(os.path.join(vis_path, pklname), 'wb') as handle:
         pickle.dump(vis, handle)
+
+
+    # Show UV coverage
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    plt.figure(figsize=(6, 4))
+    uvw_valid = vis.visibility_acc.uvw_lambda.reshape((-1, 3))[vis['flags'].data.flatten() == 0]
+    u = uvw_valid[..., 0]
+    v = uvw_valid[..., 1]
+    plt.plot(u, v, "o", color="b", markersize=0.5, label="Valid")
+    plt.plot(-u, -v, "o", color="b", markersize=0.5)
+    plt.xlabel("U (wavelengths)", fontsize=11)
+    plt.ylabel("V (wavelengths)", fontsize=11)
+    lim = 1.05 * max(np.abs(u).max(), np.abs(v).max())
+    plt.xlim([-lim, lim])
+    plt.ylim([-lim, lim])
+    plt.title("Subsampled UV coverage")
+    plt.subplots_adjust(left=0.16, right=0.95, top=0.9, bottom=0.15)
+    plt.show(block=False)
