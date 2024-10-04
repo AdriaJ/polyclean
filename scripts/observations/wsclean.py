@@ -22,7 +22,7 @@ thresh = 3
 niter = 10_000
 
 save = False
-save_im_pkl = True
+save_im_pkl = False
 
 if __name__ == "__main__":
     data_path = "/home/jarret/Documents/EPFL/PhD/ra_data/"
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     start = time.time()
     os.system(
         f"wsclean -auto-threshold {thresh} -size {npixel:d} {npixel:d} -scale {fov_deg / npixel:.6f} -mgain 0.7 "
-        f"-niter {niter:d} -name ws -weight natural -quiet -no-dirty wsclean-dir/ssms.ms")
+        f"-niter {niter:d} -name ws -weight natural -quiet wsclean-dir/ssms.ms")  # -no-dirty
     print("\tRun in {:.3f}s".format(dt_wsclean := time.time() - start))
     os.system(f"mv ws-* wsclean-dir/")
 
@@ -99,3 +99,11 @@ if __name__ == "__main__":
 
     # import polyclean.image_utils as ut
     # ut.myplot_uvcoverage(vis, title="Subsampled UV coverage")
+
+    dirty, _ = invert_visibility(vis, image_model, context=context, dopsf=False)
+    ws_dirty = import_image_from_fits(ws_dir + '/' + f"ws-dirty.fits")
+    clean_beam = fit_psf(psf)
+    print(f"Difference : {np.linalg.norm(dirty.pixels.data - ws_dirty.pixels.data)/np.linalg.norm(ws_dirty.pixels.data):.3e}")
+    # 8% difference between dirty images
+    plot_1_image(dirty, "Dirty image")
+    plot_1_image(ws_dirty, "WS-CLEAN dirty image")
