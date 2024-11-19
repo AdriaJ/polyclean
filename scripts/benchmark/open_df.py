@@ -11,9 +11,9 @@ from fill_df import load_dfs
 # plt.style.use('ggplot')
 
 # use("Qt5Agg")
-
-df_dir_path = '/home/jarret/Downloads/res/srf10reps10'
-title = "SRF 2"
+srf = 10
+df_dir_path = '/home/jarret/Downloads/res/srf' + str(srf) + 'reps10'
+title = "SRF 10"
 
 exp_name = '6reps_server2'  # '2reps_local'
 
@@ -58,32 +58,46 @@ if __name__ == "__main__":
     side_size = props_df[['rmax', 'npix', 'nvis']].groupby('rmax').agg(lambda x: x.iloc[0])
     side_size['imsize_mpix'] = (side_size['npix'] ** 2) / 1.e+6
 
-    fig = plt.figure(figsize=(8, 6))
+
+    label_size = 15
+    ticks_size = 12
+    fig = plt.figure(figsize=(7, 5.5), layout="constrained")
     ax = plt.gca()
     ax.set_yscale('log')
     ax.set_xscale('log')
     for c, color in zip(col, plt.rcParams['axes.prop_cycle'].by_key()['color']):
         ax.scatter(side_size.loc[meds.index]['imsize_mpix'], meds[c], marker='o', label=c, color=color)
         ax.fill_between(side_size.loc[meds.index]['imsize_mpix'], quart1[c], quart3[c], alpha=.2, color=color)
-    ax.set_ylabel('time (s)')
-    # ax.set_title("Time comparison")
-    ax.set_xlabel('Image size (MPix)')
+    ax.set_ylabel('Time (s)', fontsize=label_size)
+    ax.set_xlabel('Image size (MPix)', fontsize=label_size)
     labs = [f"{s:.2f}" if s <= 0.2 else f"{s:.1f}" for s in side_size.loc[meds.index]['imsize_mpix']]
     labs[3] = ''
-    ax.set_xticks(side_size.loc[meds.index]['imsize_mpix'],
-                  labels=labs, minor=True)
-    # ax.set_xticks([1, 10, 100], labels=['', '', 100.0])
-    ax.set_xticks([1, 0.1], labels=['', ''])
-    ax.legend()
-    ax.xaxis.grid(True)
-    ax.yaxis.grid(True)
+    if srf == 5:
+        labs[0] = '0.1'
+    ax.set_xticks(side_size.loc[meds.index]['imsize_mpix'], labels=labs, minor=True, fontsize=ticks_size)
+    if srf == 10:
+        ax.set_xticks([1, 10, 100], labels=[1.0, '', 100.0], fontsize=ticks_size)
+    elif srf == 5:
+        ax.set_xticks([0.1], labels=[''])
+    elif srf == 2:
+        ax.set_xticks([0.1, 1], labels=['', ''])
+    ax.xaxis.set_label_coords(0.5, -0.06)
+    # ax.xaxis.grid(True)
+    # ax.yaxis.grid(True)
     # ax.minorticks_off()
+    ax.legend(fontsize=20)
+    ax.tick_params(axis='y', labelsize=ticks_size)
     ax2 = ax.secondary_xaxis('top')
-    ax2.set_ticks(side_size.loc[meds.index]['imsize_mpix'], labels=[f"{r/1000}" for r in meds.index])
-    ax2.set_xlabel("rmax (km)")
+    labs = [f"{r/1000}" for r in meds.index]
+    labs[2] = ''
+    ax2.set_ticks(side_size.loc[meds.index]['imsize_mpix'], labels=labs, fontsize=ticks_size)
+    ax2.set_xlabel(r"$r_\mathrm{max}$ (km)", fontsize=label_size)
+    ax2.xaxis.labelpad = 4.
     ax2.minorticks_off()
-    fig.suptitle(title)
+    # fig.suptitle(title)
+    plt.savefig(os.path.join("/home/jarret/PycharmProjects/polyclean/figures/bench", f"benchsrf{srf:d}.pdf"))
     plt.show()
+
 
 
 
