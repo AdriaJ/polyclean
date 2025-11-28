@@ -1,0 +1,10 @@
+What to do in this experiment?
+
+Simulate FOV 3° x 3°, 100 sources, lognormal distribution
+Compute nominal resolution, solve CLEAN and PolyCLEAN with this resolution
+compute resolution associated with 10x HVOX resolution, solve with that resolution
+
+What to report?
+* reconstruction time
+* image size
+* precise location of the reconstructed sources (some sort of quality)
