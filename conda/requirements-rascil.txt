@@ -1,0 +1,6 @@
+numpy
+scipy
+dask
+sparse
+numba
+python-casacore
