@@ -10,12 +10,21 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from plot_reconstructions import plot_1_image, truncate_colormap
 
+factor = 0.02
+nantennas = 50
+
 if __name__ == "__main__":
 
-    with open(os.path.join(os.getcwd(), "certif_pkl", "0.02", "certificate.pkl"), 'rb') as handle:
+    # with open(os.path.join(os.getcwd(), "certif_pkl", "0.02", "certificate.pkl"), 'rb') as handle:
+    #     certif = pickle.load(handle)
+    # with open(os.path.join(os.getcwd(), "certif_pkl", "0.02", "restored.pkl"), 'rb') as handle:
+    #     restored = pickle.load(handle)
+
+    with open(os.path.join(os.getcwd(), "reco_pkl", f"{nantennas}antennas", str(factor), "certif.pkl"), 'rb') as handle:
         certif = pickle.load(handle)
-    with open(os.path.join(os.getcwd(), "certif_pkl", "0.02", "restored.pkl"), 'rb') as handle:
+    with open(os.path.join(os.getcwd(), "reco_pkl", f"{nantennas}antennas", str(factor), "restored.pkl"), 'rb') as handle:
         restored = pickle.load(handle)
+
 
     plot_1_image(restored, title="Restored image", cmaps=['hot', 'Greys'], alpha=.95,
                  offset_cm=0., symm=True, ticks=None, vlim=172)
@@ -38,7 +47,8 @@ if __name__ == "__main__":
     cmapr = truncate_colormap(cmaps[1], 0., 1 - offset_cm)
     aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha, cmap=cmapr,
                       norm='linear', vmin=arr.min(), vmax=vlim, )
-    rect = mptchs.Rectangle((380, 70), 230, 180, fill=False, edgecolor='aquamarine', lw=3, ls='--')
+    # rect = mptchs.Rectangle((380, 70), 230, 180, fill=False, edgecolor='aquamarine', lw=3, ls='--')
+    rect = mptchs.Rectangle((1140, 210), 690, 540, fill=False, edgecolor='aquamarine', lw=3, ls='--')
     ax.add_patch(rect)
     axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
     cbc = fig.colorbar(aximc, cax=axinsc, orientation="vertical", extend='max')
@@ -49,8 +59,10 @@ if __name__ == "__main__":
 
     ## Zoom in
     # Find the area to keep
-    slicex = slice(70, 250)  # 180
-    slicey = slice(380, 610)  # 230
+    # slicex = slice(70, 250)  # 180
+    # slicey = slice(380, 610)  # 230
+    slicex = slice(210, 750)
+    slicey = slice(1140, 1830)
 
     # Plot the zoomed areas
     arr2 = arr[slicex, slicey]
@@ -77,16 +89,18 @@ if __name__ == "__main__":
     fig.show()
 
     import matplotlib.colors as mplc
-    files_dir = ['0.02', 'autothresh2']
+    files_dir = ['0.02', 'autothresh3']
     images = []
     for f in files_dir:
-        with open(os.path.join(os.getcwd(), 'reco_pkl', f, 'comp_restored.pkl'), 'rb') as file:
+        with open(os.path.join(os.getcwd(), "reco_pkl", f"{nantennas}antennas", f, 'comp_restored.pkl'), 'rb') as file:
             images.append(pickle.load(file))
 
     vmax = max([im.pixels.data.max() for im in images])
     vmin = min([im.pixels.data.min() for im in images])
 
     vlim = -vmin
+    print(f"Vmax: {vmax}")
+    print(f"Vlim: {vlim}")
     alpha = .95
 
     split = int(2 * vlim * 256 / (vmax + vlim))

@@ -51,4 +51,15 @@ entered the `df_dir_path` and `exp_name` of the data to plot::
     Configuration file for the simulations and all the reconsruction methods.
 
 
+3. Available datasets
+---------------------
+
+The simulations produced for experimenting and writing the article have been made available as datasets on [Zenodo](https://zenodo.org/records/17749251). It consists of two datasets.
+
+- `db_reps1_reconstructions/`
+    Contains reconstruction examples as image fits files, for each simulation setup considered.
+
+- `db_reps10_results/`
+    Dataset of aggregated metrics through 10 repetitions of each simulation experiment. 
+
 .. _WS-CLEAN: https://wsclean.readthedocs.io/en/latest/

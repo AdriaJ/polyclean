@@ -14,7 +14,7 @@ nantennas = 50
 
 fov_deg = 6.
 context = "ng"
-niter = 10_000
+niter = 100_000
 
 save_im_pkl = True
 
@@ -80,7 +80,7 @@ if __name__ == "__main__":
                 pickle.dump(wsclean_residual, handle)
 
             with open(os.path.join(os.getcwd(), 'reco_pkl', str(nantennas) + 'antennas', 'report_wsclean.txt'), "w+") as file:
-                file.write("WS-CLEAN reconstrucitons:\n")
+                file.write("WS-CLEAN reconstructions:\n")
                 file.write(f"Autothresholds: {thresholds}\n")
                 file.write(f"Durations: " + str(durations) + "\n")
 
