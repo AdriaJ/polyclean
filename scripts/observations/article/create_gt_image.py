@@ -25,11 +25,12 @@ from ska_sdp_func_python.imaging import invert_visibility, create_image_from_vis
 
 peak_thresh = 10
 
-npixel = 1024
+npixel = 3072
+nantennas = 50
 fov_deg = 6.
 context = "ng"
 
-mode = "total"  # "peak"
+mode = "peak"  #"total"  # "peak"
 
 def truncate_colormap(cmap, minval, maxval, n=100):
     if isinstance(cmap, str):
@@ -151,6 +152,7 @@ if __name__ == "__main__":
 
     # save the images as pkl
     pkl_dir = "/home/jarret/PycharmProjects/polyclean/scripts/observations/article/reco_pkl"
+    pkl_dir += f"/{nantennas}antennas"
     if not os.path.exists(os.path.join(pkl_dir, 'gt')):
         os.makedirs(os.path.join(pkl_dir, 'gt'))
     with open(os.path.join(pkl_dir, 'gt', 'gt_' + mode + '_cb' + '.pkl'), 'wb') as file:

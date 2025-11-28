@@ -46,16 +46,20 @@ def plot_1_image(image, title="", cmaps=['hot', 'Greys'], alpha=.95, offset_cm=0
     plt.subplots_adjust(top=0.92, bottom=0.08, left=0.0, right=0.93, hspace=0.15, wspace=0.15)
     fig.show()
 
+fig_path = "/home/jarret/PycharmProjects/polyclean/scripts/observations/article/figures"
+
 zoomed_in = True
 
+nantennas = 50
+
 if __name__ == "__main__":
-    dir_path = os.path.join(os.getcwd(), 'reco_pkl')
+    dir_path = os.path.join(os.getcwd(), 'reco_pkl', f"{nantennas}antennas")
     # files_dir = [f for f in os.listdir('.') if os.path.isdir(os.path.join('.', f))]
     files_dir = ['0.05', 'autothresh3', '0.02', 'autothresh2', '0.005', 'autothresh1']
     images = []
     for f in files_dir:
         # restored, restored_sharps, comp_restored, comp_restored_sharp, model, residual
-        with open(os.path.join(dir_path, f, 'comp_restored' + '.pkl'), 'rb') as file:
+        with open(os.path.join(dir_path, f, 'restored' + '.pkl'), 'rb') as file:
             images.append(pickle.load(file))
     with open(os.path.join(os.getcwd(), 'dirty.pkl'), 'rb') as file:
         dirty_im = pickle.load(file)
@@ -104,8 +108,8 @@ if __name__ == "__main__":
 
         # Zoomed in as inset
         if zoomed_in:
-            # x1, x2, y1, y2 = 425, 575, 85, 235
-            x1, x2, y1, y2 = 130, 250, 630, 750
+            x1, x2, y1, y2 = 390, 750, 1890, 2250
+            # x1, x2, y1, y2 = 130, 250, 630, 750  # nantennas 24 and npixels = 1024
             axins = ax.inset_axes(
                 [0.5, 0.5, 0.47, 0.47],
                 xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[], xticks=[], yticks=[],)
@@ -119,6 +123,75 @@ if __name__ == "__main__":
     fig.colorbar(aximn, cax=cbar_ax2, orientation="horizontal", ticks=[-vlim, -vlim/2, 0, vlim/2, vlim])
     plt.subplots_adjust(top=0.9, bottom=0.05, left=0.1, right=0.9, hspace=0.09, wspace=0.)
     plt.show()
+
+    # Plot the ground truth image
+    sharp = False
+    with open(os.path.join(dir_path, 'gt', 'gt_peak_' + (1-sharp) * 'cb' + sharp * 'sharp' + '.pkl'), 'rb') as file:
+        gt_im = pickle.load(file)
+
+    ticks = [vlim, 1000, 2000, 3000, 4000]
+    arr = gt_im.pixels.data[0, 0]
+
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.subplots(1, 1, subplot_kw={'projection': gt_im.image_acc.wcs.sub([1, 2]), 'frameon': False})
+    ax.set_xlabel(gt_im.image_acc.wcs.wcs.ctype[0])
+    ax.set_ylabel(gt_im.image_acc.wcs.wcs.ctype[1])
+
+    mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
+    mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
+    aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapp, interpolation='none', alpha=alpha, norm = n)
+    aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha,
+                      cmap=cmapn, norm='linear', vmin=-vlim, vmax=vlim)
+    axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
+    cbc = fig.colorbar(aximc, cax=axinsc,
+                       orientation="vertical", ticks=[round(vlim)] + ticks)
+    axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
+    cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
+    if zoomed_in:
+        x1, x2, y1, y2 = 390, 750, 1890, 2250
+        axins = ax.inset_axes(
+            [0.5, 0.5, 0.47, 0.47],
+            xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[], xticks=[], yticks=[], )
+        axins.imshow(mask_res, origin="lower", cmap=cmapn, interpolation='none', alpha=alpha, vmin=-vlim,
+                     vmax=vlim)  # , extent=extent)
+        axins.imshow(mask_comp, origin="lower", cmap=cmapp, interpolation='none', norm=n, alpha=alpha)
+        ax.indicate_inset_zoom(axins, edgecolor="black")
+    fig.suptitle("Catalogue Image")
+    plt.subplots_adjust(top=0.92, bottom=0.08, left=0.0, right=0.93, hspace=0.15, wspace=0.15)
+    fig.savefig(os.path.join(fig_path, f"catalogue{nantennas:d}_dpi600.png"), dpi=600)
+    fig.show()
+
+    # Plots the dirty image
+    arr = dirty_im.pixels.data[0, 0]
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.subplots(1, 1, subplot_kw={'projection': dirty_im.image_acc.wcs.sub([1, 2]), 'frameon': False})
+    ax.set_xlabel(dirty_im.image_acc.wcs.wcs.ctype[0])
+    ax.set_ylabel(dirty_im.image_acc.wcs.wcs.ctype[1])
+
+    mask_comp = np.ma.masked_array(arr, arr < vlim, fill_value=vlim)
+    mask_res = np.ma.masked_array(arr, arr > vlim, fill_value=vlim)
+    aximc = ax.imshow(mask_comp, origin="lower", cmap=cmapp, interpolation='none', alpha=alpha, norm = n)
+    aximr = ax.imshow(mask_res, origin="lower", interpolation='none', alpha=alpha,
+                      cmap=cmapn, norm='linear', vmin=-vlim, vmax=vlim)
+    axinsc = inset_axes(ax, width="3%", height="100%", loc='center right', borderpad=-3)
+    cbc = fig.colorbar(aximc, cax=axinsc,
+                       orientation="vertical", ticks=[round(vlim)] + ticks)
+    axinsr = inset_axes(axinsc, width="100%", height="100%", loc='center right', borderpad=-6)
+    cbr = fig.colorbar(aximr, cax=axinsr, orientation="vertical")
+    if zoomed_in:
+        x1, x2, y1, y2 = 390, 750, 1890, 2250
+        axins = ax.inset_axes(
+            [0.5, 0.5, 0.47, 0.47],
+            xlim=(x1, x2), ylim=(y1, y2), xticklabels=[], yticklabels=[], xticks=[], yticks=[], )
+        axins.imshow(mask_res, origin="lower", cmap=cmapn, interpolation='none', alpha=alpha, vmin=-vlim,
+                     vmax=vlim)  # , extent=extent)
+        axins.imshow(mask_comp, origin="lower", cmap=cmapp, interpolation='none', norm=n, alpha=alpha)
+        ax.indicate_inset_zoom(axins, edgecolor="black")
+    fig.suptitle("Dirty Image")
+    plt.subplots_adjust(top=0.92, bottom=0.08, left=0.0, right=0.93, hspace=0.15, wspace=0.15)
+    fig.savefig(os.path.join(fig_path, f"dirty{nantennas:d}_dpi600.png"), dpi=600)
+    fig.show()
+
 
     for i in range(3):
         max_pclean = images[2*i].pixels.data.max()

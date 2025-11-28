@@ -15,7 +15,7 @@ from ska_sdp_func_python.imaging import invert_visibility, create_image_from_vis
 from ska_sdp_func_python.image import restore_cube, fit_psf
 from ska_sdp_func_python.util import skycoord_to_lmn
 
-lambda_factors = [0.05, 0.02, 0.005]
+lambda_factors = [0.005]  # [0.05, 0.02, 0.005]
 
 npixel = 3072
 nantennas = 50
